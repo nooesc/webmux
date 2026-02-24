@@ -26,7 +26,6 @@
     <div
       ref="messageListRef"
       class="flex-1 overflow-y-auto px-4 py-3 space-y-4"
-      style="scroll-behavior: smooth"
     >
       <!-- Empty state -->
       <div v-if="messages.length === 0 && !error" class="flex flex-col items-center justify-center h-full">
@@ -186,6 +185,8 @@ const inputText = ref('')
 const messageListRef = ref<HTMLDivElement | null>(null)
 const inputRef = ref<HTMLTextAreaElement | null>(null)
 const expandedBlocks = ref<Set<string>>(new Set())
+// Track texts we sent optimistically so we can dedup when the watcher echoes them back
+const pendingSentTexts = ref<string[]>([])
 
 const isConnected = computed(() => props.ws.isConnected.value)
 
@@ -260,13 +261,39 @@ function toggleBlock(msgIdx: number, blockIdx: number): void {
   }
 }
 
+// --- Message merging ---
+
+/**
+ * Merge consecutive assistant messages into one.  Claude Code writes each
+ * block (text, tool_use) as a separate JSONL entry, but we want to present
+ * them as a single assistant turn.
+ */
+function mergeMessages(msgs: ChatMessage[]): ChatMessage[] {
+  const merged: ChatMessage[] = []
+  for (const msg of msgs) {
+    const last = merged[merged.length - 1]
+    if (last && last.role === 'assistant' && msg.role === 'assistant') {
+      last.blocks.push(...msg.blocks)
+      // Keep the earliest timestamp
+      if (!last.timestamp && msg.timestamp) last.timestamp = msg.timestamp
+    } else {
+      // Push a shallow copy so we can safely mutate blocks later
+      merged.push({ ...msg, blocks: [...msg.blocks] })
+    }
+  }
+  return merged
+}
+
 // --- Auto-scroll ---
 
 function scrollToBottom(): void {
   nextTick(() => {
-    if (messageListRef.value) {
-      messageListRef.value.scrollTop = messageListRef.value.scrollHeight
-    }
+    // Use rAF to ensure the browser has laid out the DOM
+    requestAnimationFrame(() => {
+      if (messageListRef.value) {
+        messageListRef.value.scrollTop = messageListRef.value.scrollHeight
+      }
+    })
   })
 }
 
@@ -296,6 +323,15 @@ function sendMessage(): void {
   const text = inputText.value.trim()
   if (!text) return
 
+  // Show the message immediately in the chat (optimistic)
+  messages.value.push({
+    role: 'user',
+    blocks: [{ type: 'text', text }],
+  })
+  pendingSentTexts.value.push(text)
+  scrollToBottom()
+
+  // Send to the tmux pane via PTY
   props.ws.send({ type: 'input', data: text + '\n' })
   inputText.value = ''
 
@@ -309,7 +345,7 @@ function sendMessage(): void {
 // --- WebSocket handlers ---
 
 function handleChatHistory(data: ChatHistoryMessage): void {
-  messages.value = data.messages
+  messages.value = mergeMessages(data.messages)
   detectedTool.value = data.tool
   error.value = null
   scrollToBottom()
@@ -317,7 +353,32 @@ function handleChatHistory(data: ChatHistoryMessage): void {
 
 function handleChatEvent(data: ChatEventMessage): void {
   const shouldScroll = isNearBottom()
-  messages.value.push(data.message)
+  const msg = data.message
+
+  // Dedup: if this is a user message that matches one we sent optimistically,
+  // skip it (we already show it locally).
+  if (msg.role === 'user' && pendingSentTexts.value.length > 0) {
+    const incomingText = msg.blocks
+      .filter(b => b.type === 'text')
+      .map(b => (b as { type: 'text'; text: string }).text)
+      .join('')
+      .trim()
+    const idx = pendingSentTexts.value.indexOf(incomingText)
+    if (idx !== -1) {
+      pendingSentTexts.value.splice(idx, 1)
+      return // already displayed optimistically
+    }
+  }
+
+  const last = messages.value[messages.value.length - 1]
+
+  // Merge consecutive assistant blocks into the same message bubble
+  if (last && last.role === 'assistant' && msg.role === 'assistant') {
+    last.blocks.push(...msg.blocks)
+  } else {
+    messages.value.push(msg)
+  }
+
   if (shouldScroll) {
     scrollToBottom()
   }
@@ -332,6 +393,7 @@ function watchChatLog(): void {
   error.value = null
   detectedTool.value = null
   expandedBlocks.value.clear()
+  pendingSentTexts.value = []
 
   props.ws.send({
     type: 'watch-chat-log',

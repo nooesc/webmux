@@ -81,7 +81,14 @@ pub fn parse_line(line: &str) -> Option<ChatMessage> {
     }
 
     let msg = raw.message?;
-    let blocks = convert_content(msg.content);
+    let mut blocks = convert_content(msg.content);
+
+    // For user messages, only keep Text blocks.  The JSONL also records
+    // tool_result entries under `type:"user"` (API convention) – those are
+    // system-level, not something the human typed.
+    if msg.role == "user" {
+        blocks.retain(|b| matches!(b, ContentBlock::Text { .. }));
+    }
 
     if blocks.is_empty() {
         return None;
@@ -327,6 +334,25 @@ mod tests {
         assert_eq!(msg.blocks.len(), 1);
         match &msg.blocks[0] {
             ContentBlock::Text { text } => assert_eq!(text, "real content"),
+            other => panic!("expected Text, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn skip_user_tool_result_only() {
+        // User entries with only tool_result blocks are API-level, not human input.
+        let line = r#"{"uuid":"g","parentUuid":"h","timestamp":"2026-02-24T10:04:00Z","type":"user","message":{"role":"user","content":[{"type":"tool_result","tool_use_id":"tu1","content":"some output"}]}}"#;
+        assert!(parse_line(line).is_none());
+    }
+
+    #[test]
+    fn user_with_text_and_tool_result_keeps_only_text() {
+        let line = r#"{"uuid":"h","parentUuid":"i","timestamp":"2026-02-24T10:05:00Z","type":"user","message":{"role":"user","content":[{"type":"text","text":"ok do it"},{"type":"tool_result","tool_use_id":"tu1","content":"done"}]}}"#;
+        let msg = parse_line(line).expect("should parse");
+        assert_eq!(msg.role, "user");
+        assert_eq!(msg.blocks.len(), 1);
+        match &msg.blocks[0] {
+            ContentBlock::Text { text } => assert_eq!(text, "ok do it"),
             other => panic!("expected Text, got {other:?}"),
         }
     }
