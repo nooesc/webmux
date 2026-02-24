@@ -1,5 +1,6 @@
 pub mod claude_parser;
 pub mod codex_parser;
+pub mod watcher;
 
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
