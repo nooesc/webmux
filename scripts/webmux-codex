@@ -1,0 +1,14 @@
+#!/bin/bash
+# Wrapper to run Codex CLI with JSON output logging for WebMux chat view.
+# Usage: webmux-codex [codex args...]
+#
+# Logs NDJSON to /tmp/webmux-codex-<PID>.jsonl so WebMux can parse it.
+
+LOG_FILE="/tmp/webmux-codex-$$.jsonl"
+
+cleanup() {
+    rm -f "$LOG_FILE"
+}
+trap cleanup EXIT
+
+codex --json "$@" 2>&1 | tee "$LOG_FILE"
