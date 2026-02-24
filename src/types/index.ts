@@ -1,7 +1,7 @@
 // WebSocket message types
 export interface WsMessage {
   type: string;
-  [key: string]: string | number | boolean | object | undefined;
+  [key: string]: string | number | boolean | object | null | undefined;
 }
 
 export interface AttachSessionMessage extends WsMessage {
