@@ -100,6 +100,7 @@ struct WsState {
     current_session: Arc<Mutex<Option<String>>>,
     audio_tx: Option<mpsc::UnboundedSender<BroadcastMessage>>,
     message_tx: mpsc::UnboundedSender<BroadcastMessage>,
+    chat_log_handle: Arc<Mutex<Option<JoinHandle<()>>>>,
 }
 
 pub async fn ws_handler(
@@ -127,6 +128,7 @@ async fn handle_socket(socket: WebSocket, state: Arc<AppState>) {
         current_session: Arc::new(Mutex::new(None)),
         audio_tx: None,
         message_tx: tx.clone(),
+        chat_log_handle: Arc::new(Mutex::new(None)),
     };
     
     // Clone client_id for the spawned task
@@ -666,6 +668,83 @@ async fn handle_message(
             let response = ServerMessage::DotfileTemplates { templates };
             send_message(&state.message_tx, response).await?;
         }
+
+        // Chat log watching
+        WebSocketMessage::WatchChatLog { session_name, window_index } => {
+            info!("Starting chat log watch for {}:{}", session_name, window_index);
+            let message_tx = state.message_tx.clone();
+
+            // Cancel any existing watcher
+            {
+                let mut handle_guard = state.chat_log_handle.lock().await;
+                if let Some(handle) = handle_guard.take() {
+                    handle.abort();
+                }
+            }
+
+            let chat_log_handle = state.chat_log_handle.clone();
+            let handle = tokio::spawn(async move {
+                match crate::chat_log::watcher::detect_log_file(&session_name, window_index).await {
+                    Ok((path, tool)) => {
+                        let (event_tx, mut event_rx) = tokio::sync::mpsc::unbounded_channel();
+
+                        // Spawn the file watcher -- the returned
+                        // RecommendedWatcher must be kept alive for as long
+                        // as we want notifications.
+                        let _watcher = match crate::chat_log::watcher::watch_log_file(
+                            &path, tool, event_tx,
+                        ).await {
+                            Ok(w) => w,
+                            Err(e) => {
+                                error!("Failed to start chat log watcher: {}", e);
+                                let _ = send_message(&message_tx, ServerMessage::ChatLogError {
+                                    error: e.to_string(),
+                                }).await;
+                                return;
+                            }
+                        };
+
+                        // Forward events to WebSocket
+                        while let Some(event) = event_rx.recv().await {
+                            let msg = match event {
+                                crate::chat_log::ChatLogEvent::History { messages, tool } => {
+                                    ServerMessage::ChatHistory {
+                                        messages,
+                                        tool: Some(tool),
+                                    }
+                                }
+                                crate::chat_log::ChatLogEvent::NewMessage { message } => {
+                                    ServerMessage::ChatEvent { message }
+                                }
+                                crate::chat_log::ChatLogEvent::Error { error } => {
+                                    ServerMessage::ChatLogError { error }
+                                }
+                            };
+                            if send_message(&message_tx, msg).await.is_err() {
+                                break;
+                            }
+                        }
+                    }
+                    Err(e) => {
+                        let _ = send_message(&message_tx, ServerMessage::ChatLogError {
+                            error: e.to_string(),
+                        }).await;
+                    }
+                }
+            });
+
+            {
+                let mut handle_guard = chat_log_handle.lock().await;
+                *handle_guard = Some(handle);
+            }
+        }
+        WebSocketMessage::UnwatchChatLog => {
+            info!("Stopping chat log watch");
+            let mut handle_guard = state.chat_log_handle.lock().await;
+            if let Some(handle) = handle_guard.take() {
+                handle.abort();
+            }
+        }
     }
     
     Ok(())
@@ -875,6 +954,14 @@ async fn cleanup_session(state: &WsState) {
     }
     drop(pty_guard);
     
+    // Clean up chat log watcher
+    {
+        let mut handle_guard = state.chat_log_handle.lock().await;
+        if let Some(handle) = handle_guard.take() {
+            handle.abort();
+        }
+    }
+
     // Clean up audio streaming
     if let Some(ref audio_tx) = state.audio_tx {
         if let Err(e) = audio::stop_streaming_for_client(audio_tx).await {

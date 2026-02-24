@@ -196,6 +196,14 @@ pub enum WebSocketMessage {
         timestamp: DateTime<Utc>,
     },
     GetDotfileTemplates,
+    // Chat log watching
+    WatchChatLog {
+        #[serde(rename = "sessionName")]
+        session_name: String,
+        #[serde(rename = "windowIndex")]
+        window_index: u32,
+    },
+    UnwatchChatLog,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -328,5 +336,16 @@ pub enum ServerMessage {
     },
     DotfileTemplates {
         templates: Vec<crate::dotfiles::DotFileTemplate>,
+    },
+    // Chat log responses
+    ChatHistory {
+        messages: Vec<crate::chat_log::ChatMessage>,
+        tool: Option<crate::chat_log::AiTool>,
+    },
+    ChatEvent {
+        message: crate::chat_log::ChatMessage,
+    },
+    ChatLogError {
+        error: String,
     },
 }
