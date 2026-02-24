@@ -399,6 +399,62 @@ export interface DotfileTemplatesMessage extends WsMessage {
   templates: DotFileTemplate[];
 }
 
+// Chat log types
+export type AiTool = 'claude' | 'codex';
+
+export interface TextBlock {
+  type: 'text';
+  text: string;
+}
+
+export interface ToolCallBlock {
+  type: 'tool_call';
+  name: string;
+  summary: string;
+  input?: Record<string, unknown>;
+}
+
+export interface ToolResultBlock {
+  type: 'tool_result';
+  toolName: string;
+  summary: string;
+  content?: string;
+}
+
+export type ChatContentBlock = TextBlock | ToolCallBlock | ToolResultBlock;
+
+export interface ChatMessage {
+  role: 'user' | 'assistant';
+  timestamp?: string;
+  blocks: ChatContentBlock[];
+}
+
+export interface WatchChatLogMessage extends WsMessage {
+  type: 'watch-chat-log';
+  sessionName: string;
+  windowIndex: number;
+}
+
+export interface UnwatchChatLogMessage extends WsMessage {
+  type: 'unwatch-chat-log';
+}
+
+export interface ChatHistoryMessage extends WsMessage {
+  type: 'chat-history';
+  messages: ChatMessage[];
+  tool: AiTool | null;
+}
+
+export interface ChatEventMessage extends WsMessage {
+  type: 'chat-event';
+  message: ChatMessage;
+}
+
+export interface ChatLogErrorMessage extends WsMessage {
+  type: 'chat-log-error';
+  error: string;
+}
+
 // Union type for all server messages
 export type ServerMessage = 
   | SessionsListMessage
@@ -425,4 +481,7 @@ export type ServerMessage =
   | DotfileWrittenMessage
   | DotfileHistoryMessage
   | DotfileRestoredMessage
-  | DotfileTemplatesMessage;
+  | DotfileTemplatesMessage
+  | ChatHistoryMessage
+  | ChatEventMessage
+  | ChatLogErrorMessage;
