@@ -15,8 +15,7 @@
     "baseUrl": ".",
     "paths": {
       "@webmux/types": ["./index.ts"],
-      "@webmux/types/backend": ["./backend.ts"],
-      "@webmux/types/frontend": ["./frontend.ts"]
+      "@webmux/types/backend": ["./backend.ts"]
     }
   },
   "include": ["*.ts"],

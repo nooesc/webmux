@@ -6,7 +6,6 @@ This directory contains comprehensive TypeScript type definitions for the WebMux
 
 - **`index.ts`** - Core shared types used by both backend and frontend
 - **`backend.ts`** - Node.js backend-specific types
-- **`frontend.ts`** - Vue.js frontend-specific types
 
 ## Usage
 
@@ -32,38 +31,6 @@ function handleMessage(ws: ExtendedWebSocket, message: ClientMessage) {
       break;
   }
 }
-```
-
-### In Frontend Code (Vue.js)
-
-```typescript
-// Import shared types
-import { TmuxSession, TmuxWindow, ServerMessage } from '@/types';
-
-// Import frontend-specific types
-import { UseWebSocketReturn, SessionListEmits } from '@/types/frontend';
-
-// Example: Type-safe Vue component
-import { defineComponent } from 'vue';
-
-export default defineComponent({
-  emits: {
-    select: (session: TmuxSession) => true,
-    create: (name: string) => true,
-    kill: (sessionName: string) => true,
-    rename: (sessionName: string, newName: string) => true,
-    refresh: () => true
-  } satisfies SessionListEmits,
-  
-  setup(props, { emit }) {
-    // TypeScript provides autocomplete for emit events
-    const selectSession = (session: TmuxSession) => {
-      emit('select', session);
-    };
-    
-    return { selectSession };
-  }
-});
 ```
 
 ### In API Clients
@@ -96,12 +63,6 @@ async function createSession(request: CreateSessionRequest): Promise<void> {
 - **Server Types**: Express and WebSocket server configuration
 - **Handler Types**: Message and request handlers
 - **Error Types**: Custom error classes and error codes
-
-### Frontend-Specific Types
-- **Composable Types**: Return types for Vue composables
-- **Store Types**: Vuex/Pinia store interfaces
-- **Component Types**: Props, emits, and component-specific types
-- **UI Types**: Forms, modals, notifications
 
 ## Type Guards
 
@@ -143,6 +104,5 @@ npm run typecheck
 When adding new types:
 1. Place shared types in `index.ts`
 2. Place backend-only types in `backend.ts`
-3. Place frontend-only types in `frontend.ts`
-4. Add JSDoc comments for better IDE support
-5. Include type guards for runtime validation when appropriate
+3. Add JSDoc comments for better IDE support
+4. Include type guards for runtime validation when appropriate

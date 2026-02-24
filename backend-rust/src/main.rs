@@ -18,14 +18,12 @@ use tower_http::{
 use tracing::{error, info};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
-mod error;
 mod tmux;
 mod types;
 mod websocket;
 mod audio;
 mod monitor;
 mod terminal_buffer;
-mod buffer;
 mod cron;
 mod dotfiles;
 

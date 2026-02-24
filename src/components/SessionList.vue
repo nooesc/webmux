@@ -141,7 +141,6 @@
 <script setup lang="ts">
 import { ref, nextTick } from 'vue'
 import SessionItem from './SessionItem.vue'
-import AudioControl from './AudioControl.vue'
 import CronSection from './CronSection.vue'
 import DotfilesSection from './DotfilesSection.vue'
 import type { TmuxSession, TmuxWindow } from '@/types'

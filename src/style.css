@@ -100,11 +100,6 @@ body {
   background: var(--bg-secondary);
 }
 
-/* Utility classes */
-.mono {
-  font-family: 'JetBrainsMono Nerd Font', 'JetBrains Mono', monospace;
-}
-
 .hover-bg:hover {
   background: var(--bg-tertiary);
 }
@@ -144,27 +139,6 @@ body {
 
 /* Mobile-specific utilities */
 @media (max-width: 768px) {
-  /* Hide elements on mobile */
-  .mobile-hidden {
-    display: none !important;
-  }
-  
-  /* Mobile font sizes */
-  .mobile-text-xs {
-    font-size: 0.65rem;
-  }
-  
-  /* Mobile padding adjustments */
-  .mobile-p-2 {
-    padding: 0.5rem;
-  }
-  
-  /* Touch-friendly button sizes */
-  .mobile-touch-target {
-    min-height: 44px;
-    min-width: 44px;
-  }
-  
   /* Mobile terminal controls scrollbar */
   .mobile-controls-scrollbar {
     scrollbar-width: none;
@@ -198,23 +172,4 @@ body {
     height: 6px;
   }
   
-  /* Mobile overlay backdrop */
-  .mobile-overlay {
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: rgba(0, 0, 0, 0.5);
-    z-index: 40;
-  }
-  
-  /* Mobile sidebar positioning */
-  .mobile-sidebar {
-    position: fixed;
-    top: 0;
-    left: 0;
-    bottom: 0;
-    z-index: 50;
-  }
 }

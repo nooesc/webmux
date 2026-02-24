@@ -6,12 +6,10 @@ edition = "2021"
 [dependencies]
 # Web framework
 axum = { version = "0.7", features = ["ws", "macros"] }
-tower = { version = "0.4", features = ["full"] }
 tower-http = { version = "0.5", features = ["cors", "fs", "trace"] }
 
 # Async runtime
 tokio = { version = "1", features = ["full"] }
-tokio-tungstenite = "0.21"
 
 # Terminal/PTY handling
 portable-pty = "0.8"
@@ -27,10 +25,7 @@ chrono = { version = "0.4", features = ["serde"] }
 sysinfo = "0.30"
 
 # Process execution
-tokio-process = "0.2"
-
 # Error handling
-thiserror = "1.0"
 anyhow = "1.0"
 
 # Logging
@@ -59,13 +54,6 @@ dirs = "5.0"
 
 # Zero-copy bytes handling
 bytes = "1.5"
-
-# Lock-free data structures
-crossbeam = "0.8"
-dashmap = "5.5"
-
-# Fast hashing
-xxhash-rust = { version = "0.8", features = ["xxh3"] }
 
 # SIMD UTF-8 validation
 simdutf8 = "0.1"

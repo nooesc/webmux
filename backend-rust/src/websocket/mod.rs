@@ -25,7 +25,6 @@ use crate::{
     audio,
     tmux,
     types::*,
-    terminal_buffer::TerminalRingBuffer,
     AppState,
 };
 use sysinfo::System;
@@ -93,7 +92,6 @@ struct PtySession {
     reader_task: JoinHandle<()>,
     child: Arc<Mutex<Box<dyn portable_pty::Child + Send>>>,
     tmux_session: String,
-    terminal_buffer: Arc<Mutex<TerminalRingBuffer>>,
 }
 
 struct WsState {
@@ -841,7 +839,6 @@ async fn attach_to_session(
         reader_task,
         child,
         tmux_session: session_name.to_string(),
-        terminal_buffer: Arc::new(Mutex::new(TerminalRingBuffer::new())), // Keep but don't use yet
     };
     
     *pty_guard = Some(pty_session);

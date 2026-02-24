@@ -330,37 +330,3 @@ pub enum ServerMessage {
         templates: Vec<crate::dotfiles::DotFileTemplate>,
     },
 }
-
-#[derive(Debug, Clone, Serialize)]
-pub struct ApiResponse<T> {
-    #[serde(flatten)]
-    pub data: T,
-}
-
-#[derive(Debug, Clone, Serialize)]
-pub struct SuccessResponse {
-    pub success: bool,
-}
-
-#[derive(Debug, Clone, Serialize)]
-pub struct ErrorResponse {
-    pub success: bool,
-    pub error: String,
-}
-
-#[derive(Debug, Clone, Serialize)]
-pub struct SessionsResponse {
-    pub sessions: Vec<TmuxSession>,
-}
-
-#[derive(Debug, Clone, Serialize)]
-pub struct WindowsResponse {
-    pub windows: Vec<TmuxWindow>,
-}
-
-#[derive(Debug, Clone, Serialize)]
-pub struct CreateSessionResponse {
-    pub success: bool,
-    #[serde(rename = "sessionName")]
-    pub session_name: String,
-}
