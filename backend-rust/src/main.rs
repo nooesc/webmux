@@ -18,14 +18,15 @@ use tower_http::{
 use tracing::{error, info};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
+mod audio;
+mod chat_log;
+mod cron;
+mod dotfiles;
+mod monitor;
+mod terminal_buffer;
 mod tmux;
 mod types;
 mod websocket;
-mod audio;
-mod monitor;
-mod terminal_buffer;
-mod cron;
-mod dotfiles;
 
 // Global flag for audio logging
 pub static ENABLE_AUDIO_LOGS: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);

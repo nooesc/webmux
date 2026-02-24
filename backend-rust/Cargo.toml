@@ -61,6 +61,9 @@ simdutf8 = "0.1"
 # Async streams
 futures = "0.3"
 
+# File watching (inotify on Linux)
+notify = { version = "6.1", features = ["macos_fsevent"] }
+
 # For audio streaming (optional, can shell out to ffmpeg instead)
 # cpal = { version = "0.15", optional = true }
 
