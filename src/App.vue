@@ -18,8 +18,18 @@
               <span class="hidden md:inline">{{ stats.hostname }}</span>
               <span>{{ stats.platform }}/{{ stats.arch }}</span>
             </div>
+            <div class="view-toggle">
+              <button
+                :class="{ active: viewMode === 'terminal' }"
+                @click="viewMode = 'terminal'"
+              >Terminal</button>
+              <button
+                :class="{ active: viewMode === 'chat' }"
+                @click="viewMode = 'chat'"
+              >Chat</button>
+            </div>
           </div>
-          
+
           <!-- Search Bar - Center section with fixed max width -->
           <div class="flex-1 flex justify-center px-2">
             <div class="relative w-full max-w-xs">
@@ -131,13 +141,23 @@
       />
       
       <main class="flex-1 min-w-0 overflow-hidden" style="background: var(--bg-primary)">
-        <TerminalView 
+        <TerminalView
           v-if="currentSession"
+          v-show="viewMode === 'terminal'"
           :session="currentSession"
           :ws="ws"
           class="h-full"
         />
-        <div v-else class="flex items-center justify-center h-full">
+        <ChatView
+          v-if="currentSession"
+          v-show="viewMode === 'chat'"
+          :session="currentSession"
+          :window-index="currentWindowIndex"
+          :ws="ws"
+          class="h-full"
+          @switch-to-terminal="viewMode = 'terminal'"
+        />
+        <div v-if="!currentSession" class="flex items-center justify-center h-full">
           <div class="text-center p-4">
             <p class="text-sm mb-2" style="color: var(--text-secondary)">No active session</p>
             <p class="text-xs mb-4" style="color: var(--text-tertiary)">Select or create a tmux session</p>
@@ -155,10 +175,13 @@ import { useWebSocket } from './composables/useWebSocket'
 import { websocketApi } from './api/websocket-api'
 import SessionList from './components/SessionList.vue'
 import TerminalView from './components/TerminalView.vue'
+import ChatView from './components/ChatView.vue'
 import type { TmuxSession, SystemStats, SessionsListMessage, WindowSelectedMessage, TmuxWindow } from './types'
 
 const queryClient = useQueryClient()
 const currentSession = ref<string | null>(null)
+const viewMode = ref<'terminal' | 'chat'>('terminal')
+const currentWindowIndex = ref<number>(0)
 const sidebarCollapsed = ref<boolean>(false)
 const windowWidth = ref<number>(window.innerWidth)
 const ws = useWebSocket()
@@ -415,12 +438,15 @@ const windowRefreshTrigger = ref(0)
 
 const handleSelectWindow = (sessionName: string, window: TmuxWindow): void => {
   console.log('Selecting window:', window.index, 'in session:', sessionName)
-  
+
   // If switching to a different session, select it first
   if (currentSession.value !== sessionName) {
     currentSession.value = sessionName
   }
-  
+
+  // Track the selected window index for ChatView
+  currentWindowIndex.value = window.index
+
   // Send the window selection command
   if (ws.isConnected.value) {
     ws.send({
@@ -505,5 +531,30 @@ const selectWindow = async (item: { sessionName: string, window: TmuxWindow }): 
 }
 .fade-enter-from, .fade-leave-to {
   opacity: 0;
+}
+
+.view-toggle {
+  display: flex;
+  background: var(--bg-tertiary);
+  border-radius: 6px;
+  padding: 2px;
+  gap: 2px;
+}
+.view-toggle button {
+  padding: 4px 12px;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 12px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.view-toggle button.active {
+  background: var(--accent-primary);
+  color: var(--bg-primary);
+}
+.view-toggle button:not(.active):hover {
+  color: var(--text-primary);
 }
 </style>
