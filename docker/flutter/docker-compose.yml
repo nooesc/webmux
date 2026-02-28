@@ -1,0 +1,20 @@
+# Docker Compose for WebMux Flutter Builds
+
+version: '3.8'
+
+services:
+  # Build Flutter Android APK
+  flutter-builder:
+    build:
+      context: ../..
+      dockerfile: docker/flutter/Dockerfile
+    image: webmux-flutter-builder:latest
+    volumes:
+      - flutter-output:/app/build/app/outputs/flutter-apk
+      - pub-cache:/root/.pub-cache
+      - gradle-cache:/root/.gradle
+
+volumes:
+  flutter-output:
+  pub-cache:
+  gradle-cache:
