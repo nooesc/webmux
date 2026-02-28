@@ -62,6 +62,11 @@ impl ClientManager {
         info!("Client removed. Total clients: {}", clients.len());
     }
 
+    pub async fn client_count(&self) -> usize {
+        let clients = self.clients.read().await;
+        clients.len()
+    }
+
     pub async fn broadcast(&self, message: ServerMessage) {
         // Serialize once for all clients
         if let Ok(serialized) = serde_json::to_string(&message) {
@@ -107,7 +112,8 @@ pub async fn ws_handler(
     ws: WebSocketUpgrade,
     State(state): State<Arc<AppState>>,
 ) -> impl IntoResponse {
-    ws.on_upgrade(|socket| handle_socket(socket, state))
+    info!("WebSocket upgrade request received");
+    ws.on_upgrade(move |socket| handle_socket(socket, state))
 }
 
 async fn handle_socket(socket: WebSocket, state: Arc<AppState>) {
@@ -182,6 +188,7 @@ async fn handle_socket(socket: WebSocket, state: Arc<AppState>) {
     // Cleanup
     cleanup_session(&ws_state).await;
     state.client_manager.remove_client(&client_id).await;
+    info!("WebSocket connection closed: {}", client_id);
 }
 
 async fn handle_message(

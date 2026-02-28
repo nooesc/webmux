@@ -1,5 +1,6 @@
 use anyhow::Result;
 use axum::{
+    extract::State,
     routing::get,
     Router,
 };
@@ -106,6 +107,14 @@ async fn main() -> Result<()> {
 
     // Build the router
     let app = Router::new()
+        // API: Get connected clients count
+        .route("/api/clients", get({
+            let state = Arc::new(state.clone());
+            move |State(s): State<Arc<AppState>>| async move {
+                let count = s.client_manager.client_count().await;
+                format!("{{\"clients\":{}}}", count)
+            }
+        }))
         // WebSocket endpoint
         .route("/ws", get(websocket::ws_handler))
         // Serve static files (Vue app)
@@ -120,7 +129,7 @@ async fn main() -> Result<()> {
         .with_state(Arc::new(state));
 
     // Dev branch uses different ports
-    let http_port = 4000;
+    let http_port = 4010;
     let https_port = 4443;
 
     // Start HTTP server
