@@ -159,9 +159,9 @@
     <!-- Terminal container -->
     <div 
       ref="terminalContainer" 
-      class="absolute inset-0 overflow-hidden touch-manipulation z-10" 
+      class="absolute inset-0 overflow-auto touch-manipulation z-10" 
       tabindex="0" 
-      :style="`background: #000; ${isMobile ? 'padding-top: 48px;' : ''}`" 
+      :style="terminalContainerStyle" 
       @click="focusTerminal"
       @contextmenu.prevent
       @touchstart="handleTouchStart"
@@ -198,7 +198,21 @@ const terminalSize = ref<TerminalSize>({ cols: 80, rows: 24 })
 const ctrlPressed = ref<boolean>(false)
 const isMobile = computed(() => window.innerWidth < 768)
 const isDragging = ref<boolean>(false)
+const keyboardHeight = ref(0)
+const isKeyboardVisible = ref(false)
 let dragCounter = 0
+
+// Computed style for terminal container to handle keyboard
+const terminalContainerStyle = computed(() => {
+  let style = 'background: #000;'
+  if (isMobile.value) {
+    style += ' padding-top: 48px;'
+  }
+  if (keyboardHeight.value > 0) {
+    style += ` padding-bottom: ${keyboardHeight.value}px;`
+  }
+  return style
+})
 
 // Performance optimization: Output buffering
 const outputBuffer = {
@@ -238,12 +252,17 @@ onMounted(() => {
       brightCyan: '#a5d6ff',
       brightWhite: '#ffffff'
     },
-    scrollback: 5000, // Reduced for better performance
+    scrollback: 5000,
     tabStopWidth: 8,
     // @ts-ignore - bellStyle is a valid option but not in types
     bellStyle: 'none',
     drawBoldTextInBrightColors: true,
-    lineHeight: 1.2
+    lineHeight: 1.2,
+    // Mobile scrolling improvements
+    smoothScrollDuration: 50,
+    fastScrollModifier: 'ctrl',
+    fastScrollSensitivity: 10,
+    scrollSensitivity: 3
   })
 
   const fit = new FitAddon()
@@ -277,6 +296,14 @@ onMounted(() => {
           data: data
         }
         props.ws.send(message)
+        
+        // On mobile, scroll to show cursor after input
+        if (isMobile.value && terminal.value) {
+          setTimeout(() => {
+            const cursorLine = terminal.value?.buffer.active.cursorY ?? 0
+            terminal.value?.scrollToLine(cursorLine)
+          }, 50)
+        }
       }
     })
 
@@ -389,6 +416,12 @@ onMounted(() => {
 
   window.addEventListener('resize', debouncedResize)
   
+  // Visual viewport for mobile keyboard detection
+  if (isMobile.value && window.visualViewport) {
+    window.visualViewport.addEventListener('resize', handleVisualViewportResize)
+    window.visualViewport.addEventListener('scroll', handleVisualViewportScroll)
+  }
+  
   // Also observe the terminal container for size changes
   const resizeObserver = new ResizeObserver(debouncedResize)
   if (terminalContainer.value) {
@@ -412,6 +445,10 @@ onUnmounted(() => {
   props.ws.offMessage('attached')
   window.removeEventListener('resize', debouncedResize)
   window.removeEventListener('paste', handlePaste)
+  if (isMobile.value && window.visualViewport) {
+    window.visualViewport.removeEventListener('resize', handleVisualViewportResize)
+    window.visualViewport.removeEventListener('scroll', handleVisualViewportScroll)
+  }
   if (resizeTimeout) clearTimeout(resizeTimeout)
 })
 
@@ -453,10 +490,29 @@ const attachToSession = async (): Promise<void> => {
 const handleResize = (): void => {
   if (fitAddon.value && terminal.value && terminalContainer.value) {
     try {
-      // Ensure container has valid dimensions before fitting
+      // Get container dimensions
       const rect = terminalContainer.value.getBoundingClientRect()
-      if (rect.width > 0 && rect.height > 0) {
+      
+      // Account for keyboard height on mobile
+      let availableHeight = rect.height
+      if (isMobile.value && keyboardHeight.value > 0) {
+        availableHeight = window.innerHeight - keyboardHeight.value
+      }
+      
+      if (rect.width > 0 && availableHeight > 0) {
+        // Temporarily adjust container height to fit above keyboard
+        const originalHeight = terminalContainer.value.style.height
+        if (isMobile.value && keyboardHeight.value > 0) {
+          terminalContainer.value.style.height = `${availableHeight}px`
+        }
+        
         fitAddon.value.fit()
+        
+        // Restore original height
+        if (isMobile.value && keyboardHeight.value > 0) {
+          terminalContainer.value.style.height = originalHeight
+        }
+        
         // Send the new dimensions to the server
         const dimensions = fitAddon.value.proposeDimensions()
         if (dimensions && dimensions.cols > 0 && dimensions.rows > 0) {
@@ -482,6 +538,37 @@ let resizeTimeout: ReturnType<typeof setTimeout> | null = null
 const debouncedResize = (): void => {
   if (resizeTimeout) clearTimeout(resizeTimeout)
   resizeTimeout = setTimeout(handleResize, 200) // Increased debounce for better performance
+}
+
+// Visual viewport handlers for mobile keyboard detection
+const handleVisualViewportResize = (): void => {
+  if (!window.visualViewport) return
+  
+  const viewport = window.visualViewport
+  const initialHeight = window.innerHeight
+  const currentHeight = viewport.height
+  const heightDiff = initialHeight - currentHeight
+  
+  // Keyboard is typically at least 150px
+  if (heightDiff > 150) {
+    keyboardHeight.value = heightDiff
+    isKeyboardVisible.value = true
+  } else {
+    keyboardHeight.value = 0
+    isKeyboardVisible.value = false
+  }
+  
+  // Resize terminal to fit above keyboard
+  setTimeout(() => {
+    handleResize()
+  }, 100)
+}
+
+const handleVisualViewportScroll = (): void => {
+  // Keep terminal in view when keyboard opens
+  if (isKeyboardVisible.value && terminalContainer.value) {
+    terminalContainer.value.scrollIntoView({ behavior: 'smooth' })
+  }
 }
 
 const focusTerminal = (): void => {
