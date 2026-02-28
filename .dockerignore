@@ -1,0 +1,42 @@
+# Dependencies
+node_modules
+
+# Build outputs
+dist
+android
+output
+
+# Git
+.git
+.gitignore
+
+# IDE
+.vscode
+.idea
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Docker
+docker
+Dockerfile
+.dockerignore
+
+# Docs
+docs
+README.md
+
+# Backend
+backend-rust
+Cargo.toml
+Cargo.lock
+
+# Misc
+*.md
+.env
+.env.local
