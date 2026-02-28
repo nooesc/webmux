@@ -54,6 +54,7 @@ async function sendRequest<T>(
     
     // Set up response handler
     const handler = (response: WsMessage) => {
+      console.log(`Received ${responseType} response:`, response)
       // For windows-list, check if it's for the right session
       if (responseType === 'windows-list' && response.sessionName && context && response.sessionName !== context) {
         // This response is for a different session, ignore it
@@ -89,6 +90,7 @@ async function sendRequest<T>(
     wsManager.onMessage('error', errorHandler)
     
     // Send the request
+    console.log(`Sending ${type} request, waiting for ${responseType} response...`)
     wsManager.send({ type, ...data })
     
     // Clean up handlers after response or timeout
