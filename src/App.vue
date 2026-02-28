@@ -135,15 +135,6 @@
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
               </svg>
             </button>
-            
-            <!-- Install button - hidden on xs -->
-            <button
-              @click="installApp"
-              class="hidden xs:block px-2 py-1 text-xs rounded font-medium transition-colors"
-              style="background: var(--accent-primary); color: var(--bg-primary)"
-            >
-              {{ isPWAInstalled ? 'Installed' : 'Install' }}
-            </button>
           </div>
         </div>
       </div>
@@ -228,68 +219,6 @@ const ws = useWebSocket()
 const currentTime = ref<string>('')
 const showDebug = ref(false)
 
-// PWA Install prompt
-const deferredPrompt = ref<Event | null>(null)
-const isPWAInstalled = ref(false)
-
-const checkInstalled = (): void => {
-  if (window.matchMedia('(display-mode: standalone)').matches) {
-    isPWAInstalled.value = true
-  }
-}
-
-const handleBeforeInstallPrompt = (e: Event): void => {
-  e.preventDefault()
-  deferredPrompt.value = e
-  console.log('✅ Install prompt captured:', e)
-}
-
-const installApp = async (): Promise<void> => {
-  if (deferredPrompt.value) {
-    const promptEvent = deferredPrompt.value as any
-    promptEvent.prompt()
-    const { outcome } = await promptEvent.userChoice
-    console.log('Install prompt outcome:', outcome)
-    deferredPrompt.value = null
-  } else {
-    // Prompt not available - try direct navigation approach
-    console.log('Install prompt not available, trying workarounds')
-    
-    // Method 1: Try to access via intent URL (Android)
-    const isAndroid = /android/i.test(navigator.userAgent)
-    const isChrome = /chrome/i.test(navigator.userAgent)
-    
-    if (isAndroid && isChrome) {
-      // On Android Chrome, try opening the standalone URL
-      try {
-        window.location.href = 'webmux://install'
-        setTimeout(() => {
-          // If that didn't work, prompt user manually
-          promptManualInstall()
-        }, 1000)
-      } catch (e) {
-        promptManualInstall()
-      }
-    } else {
-      promptManualInstall()
-    }
-  }
-}
-
-const promptManualInstall = (): void => {
-  const isAndroid = /android/i.test(navigator.userAgent)
-  const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent)
-  
-  if (isIOS) {
-    alert('To install:\n1. Tap the Share button (□↑)\n2. Scroll down and tap "Add to Home Screen"\n3. Tap "Add"')
-  } else if (isAndroid) {
-    alert('To install:\n1. Tap the menu (⋮) in the top right\n2. Tap "Add to Home Screen" or "Install App"')
-  } else {
-    alert('To install:\n1. Look for the install icon in the address bar\n2. Click "Install"')
-  }
-}
-
-// Search functionality
 const searchQuery = ref('')
 const showSearchResults = ref(false)
 const selectedIndex = ref(0)
@@ -361,7 +290,6 @@ onMounted(() => {
   // Initialize sidebar state - collapsed on mobile, expanded on desktop
   sidebarCollapsed.value = isMobile.value
   
-  checkInstalled()
   fetchStats()
   
   // Update time every second
@@ -399,15 +327,6 @@ onMounted(() => {
   console.log('User Agent:', navigator.userAgent)
   console.log('Protocol:', window.location.protocol)
   console.log('Display mode:', window.matchMedia('(display-mode: standalone)').matches ? 'standalone' : 'browser')
-  
-  // Listen for PWA install prompt
-  window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt)
-  
-  // Also listen for app installed event
-  window.addEventListener('appinstalled', () => {
-    console.log('App installed!')
-    isPWAInstalled.value = true
-  })
 })
 
 onUnmounted(() => {
