@@ -223,6 +223,18 @@ class WebSocketService {
     send({'type': 'get-stats'});
   }
 
+  void watchChatLog(String sessionName, int windowIndex) {
+    send({
+      'type': 'watch-chat-log',
+      'sessionName': sessionName,
+      'windowIndex': windowIndex,
+    });
+  }
+
+  void unwatchChatLog() {
+    send({'type': 'unwatch-chat-log'});
+  }
+
   void disconnect() {
     _log('Disconnecting...');
     _pingTimer?.cancel();

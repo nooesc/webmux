@@ -318,7 +318,8 @@ fn find_claude_log(cwd: &Path) -> Result<PathBuf> {
     let encoded_cwd = cwd
         .to_str()
         .context("CWD is not valid UTF-8")?
-        .replace('/', "-");
+        .replace('/', "-")
+        .replace('_', "-");
     let projects_dir = home.join(".claude").join("projects").join(&encoded_cwd);
 
     if !projects_dir.is_dir() {

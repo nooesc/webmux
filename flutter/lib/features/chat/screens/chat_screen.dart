@@ -4,7 +4,14 @@ import '../../../data/models/chat_message.dart';
 import '../providers/chat_provider.dart';
 
 class ChatScreen extends ConsumerStatefulWidget {
-  const ChatScreen({super.key});
+  final String sessionName;
+  final int windowIndex;
+
+  const ChatScreen({
+    super.key,
+    required this.sessionName,
+    this.windowIndex = 0,
+  });
 
   @override
   ConsumerState<ChatScreen> createState() => _ChatScreenState();
@@ -15,7 +22,18 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   final ScrollController _scrollController = ScrollController();
 
   @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref
+          .read(chatProvider.notifier)
+          .watchChatLog(widget.sessionName, widget.windowIndex);
+    });
+  }
+
+  @override
   void dispose() {
+    ref.read(chatProvider.notifier).unwatchChatLog();
     _controller.dispose();
     _scrollController.dispose();
     super.dispose();
@@ -25,6 +43,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     final content = _controller.text.trim();
     if (content.isNotEmpty) {
       ref.read(chatProvider.notifier).addUserMessage(content);
+      ref.read(chatProvider.notifier).sendInput(content + '\n');
       _controller.clear();
       _scrollToBottom();
     }
@@ -48,8 +67,27 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Chat'),
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(widget.sessionName),
+            if (chatState.detectedTool != null)
+              Text(
+                chatState.detectedTool!,
+                style: const TextStyle(fontSize: 12, color: Colors.grey),
+              ),
+          ],
+        ),
         actions: [
+          if (chatState.isLoading)
+            const Padding(
+              padding: EdgeInsets.all(12.0),
+              child: SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+            ),
           IconButton(
             icon: const Icon(Icons.delete_outline),
             onPressed: () {
@@ -61,33 +99,55 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       ),
       body: Column(
         children: [
+          // Error banner
+          if (chatState.error != null)
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              color: Colors.red[100],
+              child: Row(
+                children: [
+                  Icon(Icons.error_outline, color: Colors.red[700]),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      chatState.error!,
+                      style: TextStyle(color: Colors.red[700]),
+                    ),
+                  ),
+                ],
+              ),
+            ),
           // Messages list
           Expanded(
-            child: chatState.messages.isEmpty
+            child: chatState.messages.isEmpty && !chatState.isLoading
                 ? Center(
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         Icon(
-                          Icons.chat_bubble_outline,
+                          chatState.error != null
+                              ? Icons.error_outline
+                              : Icons.chat_bubble_outline,
                           size: 64,
                           color: Colors.grey[400],
                         ),
                         const SizedBox(height: 16),
                         Text(
-                          'No messages yet',
-                          style:
-                              Theme.of(context).textTheme.titleLarge?.copyWith(
-                                    color: Colors.grey[400],
-                                  ),
+                          chatState.error != null
+                              ? 'Connection error'
+                              : 'No messages yet',
+                          style: Theme.of(context).textTheme.titleLarge
+                              ?.copyWith(color: Colors.grey[400]),
                         ),
                         const SizedBox(height: 8),
                         Text(
-                          'Start a conversation with Claude Code',
-                          style:
-                              Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                    color: Colors.grey[500],
-                                  ),
+                          chatState.error != null
+                              ? chatState.error!
+                              : 'Start a conversation with Claude Code',
+                          style: Theme.of(context).textTheme.bodyMedium
+                              ?.copyWith(color: Colors.grey[500]),
+                          textAlign: TextAlign.center,
                         ),
                       ],
                     ),
@@ -108,11 +168,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
               color: Theme.of(context).colorScheme.surface,
-              border: Border(
-                top: BorderSide(
-                  color: Colors.grey[300]!,
-                ),
-              ),
+              border: Border(top: BorderSide(color: Colors.grey[300]!)),
             ),
             child: Row(
               children: [
@@ -174,10 +230,10 @@ class _MessageBubble extends StatelessWidget {
           color: isUser
               ? Theme.of(context).colorScheme.primary
               : isError
-                  ? Colors.red[100]
-                  : isTool
-                      ? Colors.amber[100]
-                      : Colors.grey[200],
+              ? Colors.red[100]
+              : isTool
+              ? Colors.amber[100]
+              : Colors.grey[200],
           borderRadius: BorderRadius.circular(16).copyWith(
             bottomRight: isUser ? const Radius.circular(4) : null,
             bottomLeft: !isUser ? const Radius.circular(4) : null,
@@ -205,8 +261,8 @@ class _MessageBubble extends StatelessWidget {
                 color: isUser
                     ? Colors.white
                     : isError
-                        ? Colors.red[900]
-                        : Colors.black87,
+                    ? Colors.red[900]
+                    : Colors.black87,
               ),
             ),
           ],

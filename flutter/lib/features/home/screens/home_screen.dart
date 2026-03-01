@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../sessions/screens/sessions_screen.dart';
-import '../../chat/screens/chat_screen.dart';
 import '../../cron/screens/cron_screen.dart';
 import '../../dotfiles/screens/dotfiles_screen.dart';
 import '../../system/screens/system_screen.dart';
@@ -29,12 +28,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     super.initState();
     _screens.addAll([
       const SessionsScreen(),
-      const ChatScreen(),
+      // Chat is now accessed via session selection
       const CronScreen(),
       const DotfilesScreen(),
       const SystemScreen(),
     ]);
-    
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _restoreState();
     });
@@ -101,11 +100,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             icon: Icon(Icons.terminal_outlined),
             selectedIcon: Icon(Icons.terminal),
             label: 'Sessions',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.chat_bubble_outline),
-            selectedIcon: Icon(Icons.chat_bubble),
-            label: 'Chat',
           ),
           NavigationDestination(
             icon: Icon(Icons.schedule_outlined),
