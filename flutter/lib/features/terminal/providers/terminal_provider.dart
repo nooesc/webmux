@@ -59,6 +59,11 @@ class TerminalNotifier extends StateNotifier<TerminalState> {
         _wsService.sendTerminalData(sessionName, data);
       };
 
+      // Set up terminal resize callback
+      terminal.onResize = (cols, rows, syncUi, pid) {
+        _wsService.resizeTerminal(sessionName, cols, rows);
+      };
+
       // Listen for incoming data from WebSocket
       // Handle output messages - after attach, all output goes to this terminal
       _wsService.messages.listen((message) {

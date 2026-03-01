@@ -21,21 +21,17 @@ class TerminalViewWidget extends StatefulWidget {
 }
 
 class _TerminalViewWidgetState extends State<TerminalViewWidget> {
-  final TransformationController _transformController =
-      TransformationController();
-  double _scale = 1.0;
+  double _fontSize = 14.0;
   bool _ctrlPressed = false;
+
+  int _lastCols = 0;
+  int _lastRows = 0;
+  bool _initialized = false;
 
   @override
   void initState() {
     super.initState();
     widget.terminal.onOutput = widget.onInput;
-  }
-
-  @override
-  void dispose() {
-    _transformController.dispose();
-    super.dispose();
   }
 
   void _handleKeyEvent(KeyEvent event) {
@@ -139,14 +135,38 @@ class _TerminalViewWidgetState extends State<TerminalViewWidget> {
 
   void _zoomIn() {
     setState(() {
-      _scale = (_scale * 1.2).clamp(0.5, 3.0);
+      _fontSize = (_fontSize * 1.2).clamp(8.0, 32.0);
     });
+    _sendResize();
   }
 
   void _zoomOut() {
     setState(() {
-      _scale = (_scale / 1.2).clamp(0.5, 3.0);
+      _fontSize = (_fontSize / 1.2).clamp(8.0, 32.0);
     });
+    _sendResize();
+  }
+
+  void _sendResize() {
+    if (_lastCols > 0 && _lastRows > 0) {
+      widget.terminal.resize(_lastCols, _lastRows);
+      widget.onResize(_lastCols, _lastRows);
+    }
+  }
+
+  void _updateTerminalSize(Size size) {
+    final charWidth = _fontSize * 0.6;
+    final charHeight = _fontSize * 1.2;
+
+    final cols = (size.width / charWidth).floor().clamp(10, 200);
+    final rows = (size.height / charHeight).floor().clamp(5, 100);
+
+    if (cols != _lastCols || rows != _lastRows) {
+      _lastCols = cols;
+      _lastRows = rows;
+      widget.terminal.resize(cols, rows);
+      widget.onResize(cols, rows);
+    }
   }
 
   @override
@@ -154,22 +174,35 @@ class _TerminalViewWidgetState extends State<TerminalViewWidget> {
     return KeyboardListener(
       focusNode: FocusNode(),
       onKeyEvent: _handleKeyEvent,
-      child: GestureDetector(
-        onDoubleTap: _zoomIn,
-        onLongPress: _zoomOut,
-        child: InteractiveViewer(
-          transformationController: _transformController,
-          minScale: 0.5,
-          maxScale: 3.0,
-          child: TerminalView(
-            widget.terminal,
-            textStyle: TerminalStyle(
-              fontSize: 14 * _scale,
-              fontFamily: 'JetBrains Mono',
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final size = Size(constraints.maxWidth, constraints.maxHeight);
+
+          if (!_initialized) {
+            _initialized = true;
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              _updateTerminalSize(size);
+            });
+          }
+
+          return GestureDetector(
+            onDoubleTap: _zoomIn,
+            onLongPress: _zoomOut,
+            child: Container(
+              color: Colors.black,
+              width: constraints.maxWidth,
+              height: constraints.maxHeight,
+              child: TerminalView(
+                widget.terminal,
+                textStyle: TerminalStyle(
+                  fontSize: _fontSize,
+                  fontFamily: 'JetBrains Mono',
+                ),
+                padding: EdgeInsets.zero,
+              ),
             ),
-            padding: EdgeInsets.zero,
-          ),
-        ),
+          );
+        },
       ),
     );
   }
