@@ -368,29 +368,19 @@ class _TerminalScreenState extends ConsumerState<TerminalScreen> with WidgetsBin
                           if (!_showCustomKeyboard && !_isSelectionMode) {
                             final isKeyboardVisible = MediaQuery.of(context).viewInsets.bottom > 0;
 
-                            if (isKeyboardVisible) {
-                              // If keyboard is already visible, do nothing to prevent bouncing
-                              return;
-                            }
-
-                            if (_focusNode.hasFocus) {
-                              // Flutter thinks it has focus, but keyboard is hidden.
-                              // We must drop focus to reset the connection to the OS IME.
+                            if (!isKeyboardVisible) {
+                              // Force Flutter to forget the current input connection
                               _focusNode.unfocus();
-                              SystemChannels.textInput.invokeMethod('TextInput.hide');
                               
-                              // We need a slightly longer delay for the framework to 
-                              // fully register the unfocus before we request it again.
-                              Future.delayed(const Duration(milliseconds: 150), () {
+                              // Schedule the refocus for the very next frame.
+                              // This guarantees the old connection is dead and a new one 
+                              // is requested, forcing the Android OS to slide the keyboard up.
+                              WidgetsBinding.instance.addPostFrameCallback((_) {
                                 if (mounted) {
                                   _focusNode.requestFocus();
                                   SystemChannels.textInput.invokeMethod('TextInput.show');
                                 }
                               });
-                            } else {
-                              // Normal case: no focus, so just request it
-                              _focusNode.requestFocus();
-                              SystemChannels.textInput.invokeMethod('TextInput.show');
                             }
                           }
                         },
