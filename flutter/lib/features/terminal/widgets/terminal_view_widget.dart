@@ -31,13 +31,9 @@ class TerminalViewWidget extends StatefulWidget {
 
 class _TerminalViewWidgetState extends State<TerminalViewWidget> {
   double _fontSize = 14.0;
-  bool _localHardwareCtrlPressed = false;
-  bool _localHardwareAltPressed = false;
-  bool _localHardwareShiftPressed = false;
-
+  bool _initialized = false;
   int _lastCols = 0;
   int _lastRows = 0;
-  bool _initialized = false;
 
   @override
   void initState() {
@@ -56,35 +52,6 @@ class _TerminalViewWidgetState extends State<TerminalViewWidget> {
       _zoomIn();
     } else if (event == VolumeKey.down) {
       _zoomOut();
-    }
-  }
-
-  void _onKey(RawKeyEvent event) {
-    if (event is! RawKeyDownEvent) return;
-
-    final key = event.logicalKey;
-    String? sequence;
-
-    // Hardware special keys (TerminalView might miss these or we want to ensure they work)
-    if (key == LogicalKeyboardKey.backspace) sequence = '\x7f';
-    else if (key == LogicalKeyboardKey.tab) sequence = '\t';
-    else if (key == LogicalKeyboardKey.escape) sequence = '\x1b';
-    else if (key == LogicalKeyboardKey.arrowUp) sequence = '\x1b[A';
-    else if (key == LogicalKeyboardKey.arrowDown) sequence = '\x1b[B';
-    else if (key == LogicalKeyboardKey.arrowLeft) sequence = '\x1b[D';
-    else if (key == LogicalKeyboardKey.arrowRight) sequence = '\x1b[C';
-    else if (key == LogicalKeyboardKey.home) sequence = '\x1b[H';
-    else if (key == LogicalKeyboardKey.end) sequence = '\x1b[F';
-    else if (key == LogicalKeyboardKey.pageUp) sequence = '\x1b[5~';
-    else if (key == LogicalKeyboardKey.pageDown) sequence = '\x1b[6~';
-    else if (key == LogicalKeyboardKey.delete) sequence = '\x1b[3~';
-
-    if (sequence != null) {
-      widget.onInput(sequence);
-      // Reset modifiers if they were applied to a special key
-      if (widget.ctrlActive || widget.altActive || widget.shiftActive) {
-        widget.onModifiersReset();
-      }
     }
   }
 
@@ -137,57 +104,53 @@ class _TerminalViewWidgetState extends State<TerminalViewWidget> {
           });
         }
 
-        return RawKeyboardListener(
-          focusNode: widget.focusNode,
-          onKey: _onKey,
-          child: GestureDetector(
-            onTap: () {
-              widget.focusNode.requestFocus();
-            },
-            onDoubleTap: _zoomIn,
-            onLongPress: _zoomOut,
-            child: Container(
-              color: Colors.black,
-              width: constraints.maxWidth,
-              height: constraints.maxHeight,
-              child: Stack(
-                children: [
-                  // Let xterm handle its own input normally
-                  // This is the most reliable way to show the native keyboard
-                  TerminalView(
-                    widget.terminal,
-                    focusNode: widget.focusNode,
-                    autofocus: true,
-                    textStyle: TerminalStyle(
-                      fontSize: _fontSize,
-                      fontFamily: 'JetBrains Mono',
-                    ),
-                    padding: EdgeInsets.zero,
+        return GestureDetector(
+          onTap: () {
+            widget.focusNode.requestFocus();
+          },
+          onDoubleTap: _zoomIn,
+          onLongPress: _zoomOut,
+          child: Container(
+            color: Colors.black,
+            width: constraints.maxWidth,
+            height: constraints.maxHeight,
+            child: Stack(
+              children: [
+                // We use TerminalView directly with the focusNode.
+                // We don't wrap it in another FocusNode-owning widget to avoid conflicts.
+                TerminalView(
+                  widget.terminal,
+                  focusNode: widget.focusNode,
+                  autofocus: true,
+                  textStyle: TerminalStyle(
+                    fontSize: _fontSize,
+                    fontFamily: 'JetBrains Mono',
                   ),
-                  
-                  // Visual indicator for active soft modifiers
-                  if (widget.ctrlActive || widget.altActive || widget.shiftActive)
-                    Positioned(
-                      top: 8,
-                      right: 8,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: Colors.red.withOpacity(0.8),
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                        child: Text(
-                          '${widget.ctrlActive ? "CTRL " : ""}${widget.altActive ? "ALT " : ""}${widget.shiftActive ? "SHIFT" : ""}',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 10,
-                            fontWeight: FontWeight.bold,
-                          ),
+                  padding: EdgeInsets.zero,
+                ),
+                
+                // Visual indicator for active soft modifiers
+                if (widget.ctrlActive || widget.altActive || widget.shiftActive)
+                  Positioned(
+                    top: 8,
+                    right: 8,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: Colors.red.withOpacity(0.8),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Text(
+                        '${widget.ctrlActive ? "CTRL " : ""}${widget.altActive ? "ALT " : ""}${widget.shiftActive ? "SHIFT" : ""}',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
                         ),
                       ),
                     ),
-                ],
-              ),
+                  ),
+              ],
             ),
           ),
         );

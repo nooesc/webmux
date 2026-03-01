@@ -35,7 +35,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       const SystemScreen(),
     ]);
     
-    _restoreState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _restoreState();
+    });
   }
 
   Future<void> _restoreState() async {
