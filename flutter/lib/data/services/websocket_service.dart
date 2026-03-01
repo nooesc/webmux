@@ -102,6 +102,20 @@ class WebSocketService {
     });
   }
 
+  void forceReconnect() {
+    if (_currentUrl == null) return;
+    _log('Forcing immediate reconnect...');
+    _pingTimer?.cancel();
+    _reconnectTimer?.cancel();
+    try {
+      _subscription?.cancel();
+      _channel?.sink.close();
+    } catch (_) {}
+    _isConnected = false;
+    _connectionController.add(false);
+    _doConnect();
+  }
+
   void send(Map<String, dynamic> message) {
     if (_isConnected && _channel != null) {
       _log('Sending: $message');

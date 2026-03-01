@@ -106,6 +106,9 @@ class _TerminalScreenState extends ConsumerState<TerminalScreen> with WidgetsBin
     if (state == AppLifecycleState.paused) {
       _wasKeyboardVisible = MediaQuery.of(context).viewInsets.bottom > 0;
     } else if (state == AppLifecycleState.resumed) {
+      // Ensure the websocket is alive or force it to reconnect
+      ref.read(terminalProvider.notifier).checkConnection();
+
       if (_wasKeyboardVisible && !_showCustomKeyboard && !_isSelectionMode) {
         Future.delayed(const Duration(milliseconds: 500), () {
           if (mounted) {
@@ -316,8 +319,8 @@ class _TerminalScreenState extends ConsumerState<TerminalScreen> with WidgetsBin
             // Connection status bar
             AnimatedContainer(
               duration: const Duration(milliseconds: 300),
-              height: _showStatus ? null : 0,
-              child: _showStatus
+              height: (_showStatus || !terminalState.isConnected) ? null : 0,
+              child: (_showStatus || !terminalState.isConnected)
                   ? Container(
                       width: double.infinity,
                       padding: const EdgeInsets.symmetric(
