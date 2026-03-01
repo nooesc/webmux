@@ -366,18 +366,28 @@ class _TerminalScreenState extends ConsumerState<TerminalScreen> with WidgetsBin
                         shiftActive: _shiftActive,
                         onTap: () {
                           if (!_showCustomKeyboard && !_isSelectionMode) {
-                            // Aggressively clear focus across the entire app
-                            // This ensures the current TextInputConnection is killed.
-                            FocusManager.instance.primaryFocus?.unfocus();
-                            
-                            // Wait for the framework to process the unfocus event
-                            // and detach the old connection before requesting a new one.
-                            Future.delayed(const Duration(milliseconds: 150), () {
-                              if (mounted) {
-                                _focusNode.requestFocus();
-                                SystemChannels.textInput.invokeMethod('TextInput.show');
-                              }
-                            });
+                            final isKeyboardVisible = MediaQuery.of(context).viewInsets.bottom > 0;
+                            if (isKeyboardVisible) {
+                              // Keyboard is already up, tapping again should not bounce it
+                              return;
+                            }
+
+                            if (_focusNode.hasFocus) {
+                              // Flutter thinks it has focus, but keyboard is hidden.
+                              // We must drop focus to reset the connection to the OS IME.
+                              _focusNode.unfocus();
+                              SystemChannels.textInput.invokeMethod('TextInput.hide');
+                              
+                              Future.delayed(const Duration(milliseconds: 50), () {
+                                if (mounted) {
+                                  _focusNode.requestFocus();
+                                  SystemChannels.textInput.invokeMethod('TextInput.show');
+                                }
+                              });
+                            } else {
+                              _focusNode.requestFocus();
+                              SystemChannels.textInput.invokeMethod('TextInput.show');
+                            }
                           }
                         },
                         onModifiersReset: () {
