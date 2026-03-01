@@ -351,8 +351,18 @@ class _TerminalScreenState extends ConsumerState<TerminalScreen> with WidgetsBin
                   ? GestureDetector(
                       onTap: () {
                         if (!_showCustomKeyboard && !_isSelectionMode) {
-                          _focusNode.requestFocus();
-                          SystemChannels.textInput.invokeMethod('TextInput.show');
+                          if (_focusNode.hasFocus) {
+                            _focusNode.unfocus();
+                            Future.microtask(() {
+                              if (mounted) {
+                                _focusNode.requestFocus();
+                                SystemChannels.textInput.invokeMethod('TextInput.show');
+                              }
+                            });
+                          } else {
+                            _focusNode.requestFocus();
+                            SystemChannels.textInput.invokeMethod('TextInput.show');
+                          }
                         }
                       },
                       onDoubleTap: _toggleFullscreen,
