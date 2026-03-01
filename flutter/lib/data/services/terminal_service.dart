@@ -40,11 +40,25 @@ class TerminalService {
     // Listen for incoming data from WebSocket
     _wsService.messages.listen((message) {
       final type = message['type'] as String?;
-      if ((type == 'output' || type == 'terminal_data') &&
-          message['session'] == sessionName) {
+      
+      // Handle terminal output
+      // Note: Backend 'output' message ONLY has 'data', no 'session' field.
+      // Since we only have one session attached per WS connection, this is correct.
+      if (type == 'output') {
         final data = message['data'] as String?;
         if (data != null) {
           terminal.write(data);
+        }
+      }
+      
+      // Also handle legacy terminal_data format which DOES have a session field
+      if (type == 'terminal_data') {
+        final msgSession = message['session'] as String? ?? message['sessionName'] as String?;
+        if (msgSession == sessionName) {
+          final data = message['data'] as String?;
+          if (data != null) {
+            terminal.write(data);
+          }
         }
       }
     });
@@ -72,8 +86,6 @@ class TerminalService {
   }
 
   void dispose() {
-    for (final terminal in _terminals.values) {
-    }
     for (final pty in _ptys.values) {
       pty.kill();
     }
