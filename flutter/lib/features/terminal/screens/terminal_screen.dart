@@ -27,14 +27,6 @@ class _TerminalScreenState extends ConsumerState<TerminalScreen> {
   bool _altActive = false;
   bool _shiftActive = false;
 
-  final Map<String, String> _shiftMap = {
-    '1': '!', '2': '@', '3': '#', '4': '\$', '5': '%',
-    '6': '^', '7': '&', '8': '*', '9': '(', '0': ')',
-    '-': '_', '=': '+', '[': '{', ']': '}', '\\': '|',
-    ';': ':', '\'': '"', ',': '<', '.': '>', '/': '?',
-    '`': '~',
-  };
-
   @override
   void initState() {
     super.initState();
@@ -64,46 +56,7 @@ class _TerminalScreenState extends ConsumerState<TerminalScreen> {
   }
 
   void _handleInput(String data) {
-    String finalData = data;
-    
-    // If it's a single character from native keyboard, apply modifiers
-    if (data.length == 1 && (_ctrlActive || _altActive || _shiftActive)) {
-      String char = data;
-      
-      if (_shiftActive) {
-        if (_shiftMap.containsKey(char)) {
-          char = _shiftMap[char]!;
-        } else {
-          char = char.toUpperCase();
-        }
-      }
-
-      if (_ctrlActive) {
-        int code = char.toUpperCase().codeUnitAt(0);
-        if (code >= 64 && code <= 95) {
-          finalData = String.fromCharCode(code - 64);
-        } else if (char == ' ') {
-          finalData = '\x00';
-        } else {
-          finalData = char;
-        }
-      } else {
-        finalData = char;
-      }
-
-      if (_altActive) {
-        finalData = '\x1b$finalData';
-      }
-
-      // Auto-reset modifiers after one modified keypress (not locked)
-      setState(() {
-        _ctrlActive = false;
-        _altActive = false;
-        _shiftActive = false;
-      });
-    }
-
-    ref.read(terminalProvider.notifier).sendData(widget.sessionName, finalData);
+    ref.read(terminalProvider.notifier).sendData(widget.sessionName, data);
   }
 
   void _toggleFullscreen() {
@@ -214,6 +167,16 @@ class _TerminalScreenState extends ConsumerState<TerminalScreen> {
                       onResize: _handleResize,
                       onInput: _handleInput,
                       focusNode: _focusNode,
+                      ctrlActive: _ctrlActive,
+                      altActive: _altActive,
+                      shiftActive: _shiftActive,
+                      onModifiersReset: () {
+                        setState(() {
+                          _ctrlActive = false;
+                          _altActive = false;
+                          _shiftActive = false;
+                        });
+                      },
                     ),
                   )
                 : const Center(child: CircularProgressIndicator()),

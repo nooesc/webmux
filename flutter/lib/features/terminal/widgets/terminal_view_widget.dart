@@ -8,6 +8,10 @@ class TerminalViewWidget extends StatefulWidget {
   final Function(int cols, int rows) onResize;
   final Function(String data) onInput;
   final FocusNode focusNode;
+  final bool ctrlActive;
+  final bool altActive;
+  final bool shiftActive;
+  final VoidCallback onModifiersReset;
 
   const TerminalViewWidget({
     super.key,
@@ -15,6 +19,10 @@ class TerminalViewWidget extends StatefulWidget {
     required this.onResize,
     required this.onInput,
     required this.focusNode,
+    this.ctrlActive = false,
+    this.altActive = false,
+    this.shiftActive = false,
+    required this.onModifiersReset,
   });
 
   @override
@@ -23,23 +31,80 @@ class TerminalViewWidget extends StatefulWidget {
 
 class _TerminalViewWidgetState extends State<TerminalViewWidget> {
   double _fontSize = 14.0;
-  bool _ctrlPressed = false;
+  bool _localCtrlPressed = false;
 
   int _lastCols = 0;
   int _lastRows = 0;
   bool _initialized = false;
 
+  final Map<String, String> _shiftMap = {
+    '1': '!', '2': '@', '3': '#', '4': '\$', '5': '%',
+    '6': '^', '7': '&', '8': '*', '9': '(', '0': ')',
+    '-': '_', '=': '+', '[': '{', ']': '}', '\\': '|',
+    ';': ':', '\'': '"', ',': '<', '.': '>', '/': '?',
+    '`': '~',
+  };
+
   @override
   void initState() {
     super.initState();
-    widget.terminal.onOutput = widget.onInput;
+    // Intercept terminal output to apply modifiers
+    widget.terminal.onOutput = _handleTerminalInput;
     VolumeKeyBoard.instance.addListener(_handleVolumeKey);
+  }
+
+  @override
+  void didUpdateWidget(TerminalViewWidget oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    widget.terminal.onOutput = _handleTerminalInput;
   }
 
   @override
   void dispose() {
     VolumeKeyBoard.instance.removeListener();
     super.dispose();
+  }
+
+  void _handleTerminalInput(String data) {
+    String finalData = data;
+    bool modified = false;
+
+    // Apply modifiers from accessory bar for single character inputs
+    if (data.length == 1 && (widget.ctrlActive || widget.altActive || widget.shiftActive)) {
+      String char = data;
+      modified = true;
+
+      if (widget.shiftActive) {
+        if (_shiftMap.containsKey(char)) {
+          char = _shiftMap[char]!;
+        } else {
+          char = char.toUpperCase();
+        }
+      }
+
+      if (widget.ctrlActive) {
+        int code = char.toUpperCase().codeUnitAt(0);
+        if (code >= 64 && code <= 95) {
+          finalData = String.fromCharCode(code - 64);
+        } else if (char == ' ') {
+          finalData = '\x00';
+        } else {
+          finalData = char;
+        }
+      } else {
+        finalData = char;
+      }
+
+      if (widget.altActive) {
+        finalData = '\x1b$finalData';
+      }
+    }
+
+    widget.onInput(finalData);
+
+    if (modified) {
+      widget.onModifiersReset();
+    }
   }
 
   void _handleVolumeKey(VolumeKey event) {
@@ -56,7 +121,7 @@ class _TerminalViewWidgetState extends State<TerminalViewWidget> {
 
       String? sequence;
 
-      if (_ctrlPressed) {
+      if (_localCtrlPressed) {
         if (key == LogicalKeyboardKey.equal || key == LogicalKeyboardKey.add) {
           _zoomIn();
           return;
@@ -121,7 +186,6 @@ class _TerminalViewWidgetState extends State<TerminalViewWidget> {
       else if (HardwareKeyboard.instance.isControlPressed) {
         final code = key.keyLabel.toUpperCase().codeUnitAt(0);
         if (code >= 65 && code <= 90) {
-          // A-Z
           sequence = String.fromCharCode(code - 64);
         } else if (key == LogicalKeyboardKey.bracketLeft) {
           sequence = '\x1b';
@@ -140,7 +204,7 @@ class _TerminalViewWidgetState extends State<TerminalViewWidget> {
       } else if (key == LogicalKeyboardKey.altLeft ||
           key == LogicalKeyboardKey.altRight) {
         setState(() {
-          _ctrlPressed = !_ctrlPressed;
+          _localCtrlPressed = !_localCtrlPressed;
         });
         return;
       }
@@ -153,7 +217,7 @@ class _TerminalViewWidgetState extends State<TerminalViewWidget> {
       if (key == LogicalKeyboardKey.altLeft ||
           key == LogicalKeyboardKey.altRight) {
         setState(() {
-          _ctrlPressed = false;
+          _localCtrlPressed = false;
         });
       }
     }
