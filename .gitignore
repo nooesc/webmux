@@ -125,3 +125,5 @@ tramp
 
 node_modules/
 dist/
+*.apk
+opencode.json
