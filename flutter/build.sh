@@ -54,13 +54,17 @@ if [ $? -eq 0 ]; then
     # Copy APK to project root
     echo "Copying APK to project root..."
     CONTAINER_ID=$(docker create webmux-flutter-builder:latest)
-    docker cp "$CONTAINER_ID:/output/webmux-flutter-debug.apk" "$PROJECT_ROOT/webmux-flutter-debug.apk"
+    docker cp "$CONTAINER_ID:/webmux-flutter-debug.apk" "$PROJECT_ROOT/webmux-flutter-debug.apk"
     docker rm "$CONTAINER_ID"
 
     if [ -f "$PROJECT_ROOT/webmux-flutter-debug.apk" ]; then
         echo ""
         echo "APK built successfully!"
         ls -lh "$PROJECT_ROOT/webmux-flutter-debug.apk"
+
+        # Cleanup dangling images to save space
+        echo "Cleaning up dangling Docker images..."
+        docker image prune -f
 
         # Upload to S3
         echo ""
