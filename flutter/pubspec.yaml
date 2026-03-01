@@ -34,6 +34,9 @@ dependencies:
   intl: ^0.20.2
   equatable: ^2.0.7
   volume_key_board: ^0.0.2
+  flutter_background_service: ^5.1.0
+  flutter_local_notifications: ^20.1.0
+  permission_handler: ^12.0.1
 
 dev_dependencies:
   flutter_test:

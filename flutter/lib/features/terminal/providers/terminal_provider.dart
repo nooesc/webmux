@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:xterm/xterm.dart';
+import 'package:flutter_background_service/flutter_background_service.dart';
 import '../../../data/services/websocket_service.dart';
 import '../../../data/services/terminal_service.dart';
 import '../../sessions/providers/sessions_provider.dart';
@@ -57,7 +58,7 @@ class TerminalNotifier extends StateNotifier<TerminalState> {
     });
   }
 
-  void connect(String sessionName) {
+  void connect(String sessionName) async {
     _activeSessionName = sessionName;
     state = state.copyWith(isLoading: true, error: null);
 
@@ -77,6 +78,13 @@ class TerminalNotifier extends StateNotifier<TerminalState> {
       terminal: terminal,
       controller: _controllers[sessionName],
     );
+    
+    // Start background service to keep socket alive
+    final service = FlutterBackgroundService();
+    var isRunning = await service.isRunning();
+    if (!isRunning) {
+      service.startService();
+    }
   }
 
   void checkConnection() {
@@ -92,6 +100,7 @@ class TerminalNotifier extends StateNotifier<TerminalState> {
 
   void disconnect() {
     _activeSessionName = null;
+    FlutterBackgroundService().invoke('stopService');
   }
 
   void sendData(String sessionName, String data) {

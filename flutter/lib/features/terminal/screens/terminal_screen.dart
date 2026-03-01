@@ -97,6 +97,7 @@ class _TerminalScreenState extends ConsumerState<TerminalScreen> with WidgetsBin
     ref.read(terminalProvider).controller?.removeListener(_onSelectionChange);
     WidgetsBinding.instance.removeObserver(this);
     _clearActiveSession();
+    ref.read(terminalProvider.notifier).disconnect();
     _focusNode.dispose();
     super.dispose();
   }

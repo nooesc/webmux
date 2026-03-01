@@ -4,6 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'core/theme/app_theme.dart';
 import 'core/config/app_config.dart';
+import 'core/services/background_service.dart';
 import 'features/debug/screens/debug_screen.dart';
 import 'features/home/screens/home_screen.dart';
 import 'features/auth/providers/auth_provider.dart';
@@ -12,6 +13,8 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   final prefs = await SharedPreferences.getInstance();
+  
+  await initializeBackgroundService();
 
   runApp(
     ProviderScope(
