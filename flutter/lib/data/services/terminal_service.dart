@@ -12,15 +12,16 @@ class TerminalService {
   final StreamController<String> _outputController =
       StreamController<String>.broadcast();
   
-  // Custom input processor to handle modifiers
-  Function(String session, String data)? _inputProcessor;
+  // Multiple input processors allowed
+  final List<Function(String session, String data)> _inputProcessors = [];
 
   TerminalService(this._wsService);
 
   Stream<String> get outputStream => _outputController.stream;
 
   void setInputProcessor(Function(String session, String data) processor) {
-    _inputProcessor = processor;
+    _inputProcessors.clear();
+    _inputProcessors.add(processor);
   }
 
   Terminal createTerminal(String sessionName, {int cols = 80, int rows = 24}) {
@@ -30,8 +31,9 @@ class TerminalService {
 
     // Set up terminal callbacks
     terminal.onOutput = (data) {
-      if (_inputProcessor != null) {
-        _inputProcessor!(sessionName, data);
+      if (_inputProcessors.isNotEmpty) {
+        // Use the last registered processor (usually the active TerminalScreen)
+        _inputProcessors.last(sessionName, data);
       } else {
         _wsService.sendTerminalData(sessionName, data);
       }
@@ -41,9 +43,6 @@ class TerminalService {
     _wsService.messages.listen((message) {
       final type = message['type'] as String?;
       
-      // Handle terminal output
-      // Note: Backend 'output' message ONLY has 'data', no 'session' field.
-      // Since we only have one session attached per WS connection, this is correct.
       if (type == 'output') {
         final data = message['data'] as String?;
         if (data != null) {
@@ -51,7 +50,6 @@ class TerminalService {
         }
       }
       
-      // Also handle legacy terminal_data format which DOES have a session field
       if (type == 'terminal_data') {
         final msgSession = message['session'] as String? ?? message['sessionName'] as String?;
         if (msgSession == sessionName) {

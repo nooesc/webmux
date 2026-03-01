@@ -54,6 +54,7 @@ class _TerminalScreenState extends ConsumerState<TerminalScreen> with WidgetsBin
       final terminalNotifier = ref.read(terminalProvider.notifier);
       terminalNotifier.connect(widget.sessionName);
       
+      // CRITICAL: Register custom input processor to handle sticky modifiers
       terminalNotifier.terminalService.setInputProcessor(_processInput);
       
       // Listen for selection changes via the controller in state
@@ -88,8 +89,7 @@ class _TerminalScreenState extends ConsumerState<TerminalScreen> with WidgetsBin
   }
 
   void _onFocusChange() {
-    if (_focusNode.hasFocus && !_showCustomKeyboard && !_isSelectionMode) {
-    }
+    // Focus logic
   }
 
   @override
@@ -105,15 +105,12 @@ class _TerminalScreenState extends ConsumerState<TerminalScreen> with WidgetsBin
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.paused) {
-      // Remember keyboard state
       _wasKeyboardVisible = MediaQuery.of(context).viewInsets.bottom > 0;
     } else if (state == AppLifecycleState.resumed) {
-      // Restore focus and keyboard
       if (_wasKeyboardVisible && !_showCustomKeyboard && !_isSelectionMode) {
         Future.delayed(const Duration(milliseconds: 500), () {
           if (mounted) {
             _focusNode.requestFocus();
-            // Force keyboard show
             SystemChannels.textInput.invokeMethod('TextInput.show');
           }
         });
@@ -121,12 +118,15 @@ class _TerminalScreenState extends ConsumerState<TerminalScreen> with WidgetsBin
     }
   }
 
+  // This is the CRITICAL method that catches input from TerminalView
+  // and applies our custom modifiers before sending to backend.
   void _processInput(String session, String data) {
     if (_isSelectionMode) return;
 
     String finalData = data;
     bool wasModified = false;
 
+    // Apply soft modifiers for single character inputs (from native keyboard)
     if (data.length == 1 && (_ctrlActive || _altActive || _shiftActive)) {
       String char = data;
       wasModified = true;
@@ -153,8 +153,10 @@ class _TerminalScreenState extends ConsumerState<TerminalScreen> with WidgetsBin
       }
     }
 
+    // Send to backend via terminal provider
     ref.read(terminalProvider.notifier).sendData(session, finalData);
 
+    // Reset soft modifiers if they were used
     if (wasModified) {
       setState(() {
         _ctrlActive = false;
@@ -223,6 +225,12 @@ class _TerminalScreenState extends ConsumerState<TerminalScreen> with WidgetsBin
     });
   }
 
+  void _handleSelectAll() {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Select All not available in this version'), duration: Duration(seconds: 1)),
+    );
+  }
+
   void _handleCopy() async {
     final terminalState = ref.read(terminalProvider);
     final controller = terminalState.controller;
@@ -260,7 +268,6 @@ class _TerminalScreenState extends ConsumerState<TerminalScreen> with WidgetsBin
           : AppBar(
               title: Text(widget.sessionName),
               actions: [
-                // Selection / Copy / Paste Actions
                 if (_isSelectionMode)
                   IconButton(
                     icon: const Icon(Icons.close, size: 20),
