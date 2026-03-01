@@ -9,12 +9,14 @@ class TerminalState {
   final bool isLoading;
   final String? error;
   final Terminal? terminal;
+  final TerminalController? controller;
 
   const TerminalState({
     this.isConnected = false,
     this.isLoading = false,
     this.error,
     this.terminal,
+    this.controller,
   });
 
   TerminalState copyWith({
@@ -22,12 +24,14 @@ class TerminalState {
     bool? isLoading,
     String? error,
     Terminal? terminal,
+    TerminalController? controller,
   }) {
     return TerminalState(
       isConnected: isConnected ?? this.isConnected,
       isLoading: isLoading ?? this.isLoading,
       error: error,
       terminal: terminal ?? this.terminal,
+      controller: controller ?? this.controller,
     );
   }
 }
@@ -35,6 +39,7 @@ class TerminalState {
 class TerminalNotifier extends StateNotifier<TerminalState> {
   final TerminalService terminalService;
   final WebSocketService _wsService;
+  final Map<String, TerminalController> _controllers = {};
 
   TerminalNotifier(this.terminalService, this._wsService) : super(const TerminalState()) {
     _init();
@@ -50,6 +55,11 @@ class TerminalNotifier extends StateNotifier<TerminalState> {
     state = state.copyWith(isLoading: true, error: null);
 
     final terminal = terminalService.createTerminal(sessionName);
+    
+    // Create or get existing controller for this session
+    if (!_controllers.containsKey(sessionName)) {
+      _controllers[sessionName] = TerminalController();
+    }
 
     // Send attach-session message
     _wsService.attachSession(sessionName, cols: 80, rows: 24);
@@ -58,6 +68,7 @@ class TerminalNotifier extends StateNotifier<TerminalState> {
       isLoading: false,
       isConnected: _wsService.isConnected,
       terminal: terminal,
+      controller: _controllers[sessionName],
     );
   }
 
@@ -74,6 +85,10 @@ class TerminalNotifier extends StateNotifier<TerminalState> {
 
   @override
   void dispose() {
+    for (final controller in _controllers.values) {
+      controller.dispose();
+    }
+    _controllers.clear();
     super.dispose();
   }
 }

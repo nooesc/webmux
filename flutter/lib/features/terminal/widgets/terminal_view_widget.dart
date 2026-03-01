@@ -5,6 +5,7 @@ import 'package:volume_key_board/volume_key_board.dart';
 
 class TerminalViewWidget extends StatefulWidget {
   final Terminal terminal;
+  final TerminalController? controller;
   final Function(int cols, int rows) onResize;
   final Function(String data) onInput;
   final FocusNode focusNode;
@@ -16,6 +17,7 @@ class TerminalViewWidget extends StatefulWidget {
   const TerminalViewWidget({
     super.key,
     required this.terminal,
+    this.controller,
     required this.onResize,
     required this.onInput,
     required this.focusNode,
@@ -43,9 +45,16 @@ class _TerminalViewWidgetState extends State<TerminalViewWidget> with WidgetsBin
     WidgetsBinding.instance.addObserver(this);
     _wrapperFocusNode = FocusNode(debugLabel: 'TerminalWrapper');
     VolumeKeyBoard.instance.addListener(_handleVolumeKey);
-    
-    // Listen to terminal changes to force UI updates if needed
     widget.terminal.addListener(_onTerminalChange);
+  }
+
+  @override
+  void didUpdateWidget(TerminalViewWidget oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.terminal != widget.terminal) {
+      oldWidget.terminal.removeListener(_onTerminalChange);
+      widget.terminal.addListener(_onTerminalChange);
+    }
   }
 
   @override
@@ -59,8 +68,6 @@ class _TerminalViewWidgetState extends State<TerminalViewWidget> with WidgetsBin
 
   void _onTerminalChange() {
     if (mounted) {
-      // Forcing a rebuild when terminal changes ensures the cursor 
-      // follows typing and Enter key correctly.
       setState(() {});
     }
   }
@@ -95,6 +102,7 @@ class _TerminalViewWidgetState extends State<TerminalViewWidget> with WidgetsBin
     final key = event.logicalKey;
     String? sequence;
 
+    // Special hardware keys
     if (key == LogicalKeyboardKey.backspace) sequence = '\x7f';
     else if (key == LogicalKeyboardKey.tab) sequence = '\t';
     else if (key == LogicalKeyboardKey.escape) sequence = '\x1b';
@@ -194,8 +202,10 @@ class _TerminalViewWidgetState extends State<TerminalViewWidget> with WidgetsBin
                 children: [
                   TerminalView(
                     widget.terminal,
+                    controller: widget.controller,
                     focusNode: widget.focusNode,
                     autofocus: true,
+                    cursorType: TerminalCursorType.block,
                     textStyle: TerminalStyle(
                       fontSize: _fontSize,
                       fontFamily: 'JetBrains Mono',

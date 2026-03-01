@@ -69,7 +69,6 @@ class _TerminalScreenState extends ConsumerState<TerminalScreen> with WidgetsBin
 
   void _onFocusChange() {
     if (_focusNode.hasFocus && !_showCustomKeyboard) {
-      // Logic handled by focusNode itself usually
     }
   }
 
@@ -278,6 +277,7 @@ class _TerminalScreenState extends ConsumerState<TerminalScreen> with WidgetsBin
                       },
                       child: TerminalViewWidget(
                         terminal: terminalState.terminal!,
+                        controller: terminalState.controller,
                         onResize: _handleResize,
                         onInput: _handleInput,
                         focusNode: _focusNode,
