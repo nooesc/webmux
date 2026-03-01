@@ -220,6 +220,7 @@ class _TerminalViewWidgetState extends State<TerminalViewWidget> {
               height: constraints.maxHeight,
               child: TerminalView(
                 widget.terminal,
+                focusNode: widget.focusNode,
                 textStyle: TerminalStyle(
                   fontSize: _fontSize,
                   fontFamily: 'JetBrains Mono',

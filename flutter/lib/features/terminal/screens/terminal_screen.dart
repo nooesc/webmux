@@ -5,6 +5,7 @@ import 'package:xterm/xterm.dart';
 import '../providers/terminal_provider.dart';
 import '../widgets/terminal_view_widget.dart';
 import '../widgets/mobile_keyboard.dart';
+import '../widgets/terminal_accessory_bar.dart';
 
 class TerminalScreen extends ConsumerStatefulWidget {
   final String sessionName;
@@ -17,9 +18,22 @@ class TerminalScreen extends ConsumerStatefulWidget {
 
 class _TerminalScreenState extends ConsumerState<TerminalScreen> {
   final FocusNode _focusNode = FocusNode();
-  bool _showKeyboard = false;
+  bool _showCustomKeyboard = false;
   bool _fullscreen = false;
   bool _showStatus = true;
+  
+  // Modifier states for accessory bar + native keyboard
+  bool _ctrlActive = false;
+  bool _altActive = false;
+  bool _shiftActive = false;
+
+  final Map<String, String> _shiftMap = {
+    '1': '!', '2': '@', '3': '#', '4': '\$', '5': '%',
+    '6': '^', '7': '&', '8': '*', '9': '(', '0': ')',
+    '-': '_', '=': '+', '[': '{', ']': '}', '\\': '|',
+    ';': ':', '\'': '"', ',': '<', '.': '>', '/': '?',
+    '`': '~',
+  };
 
   @override
   void initState() {
@@ -50,7 +64,46 @@ class _TerminalScreenState extends ConsumerState<TerminalScreen> {
   }
 
   void _handleInput(String data) {
-    ref.read(terminalProvider.notifier).sendData(widget.sessionName, data);
+    String finalData = data;
+    
+    // If it's a single character from native keyboard, apply modifiers
+    if (data.length == 1 && (_ctrlActive || _altActive || _shiftActive)) {
+      String char = data;
+      
+      if (_shiftActive) {
+        if (_shiftMap.containsKey(char)) {
+          char = _shiftMap[char]!;
+        } else {
+          char = char.toUpperCase();
+        }
+      }
+
+      if (_ctrlActive) {
+        int code = char.toUpperCase().codeUnitAt(0);
+        if (code >= 64 && code <= 95) {
+          finalData = String.fromCharCode(code - 64);
+        } else if (char == ' ') {
+          finalData = '\x00';
+        } else {
+          finalData = char;
+        }
+      } else {
+        finalData = char;
+      }
+
+      if (_altActive) {
+        finalData = '\x1b$finalData';
+      }
+
+      // Auto-reset modifiers after one modified keypress (not locked)
+      setState(() {
+        _ctrlActive = false;
+        _altActive = false;
+        _shiftActive = false;
+      });
+    }
+
+    ref.read(terminalProvider.notifier).sendData(widget.sessionName, finalData);
   }
 
   void _toggleFullscreen() {
@@ -64,11 +117,24 @@ class _TerminalScreenState extends ConsumerState<TerminalScreen> {
     }
   }
 
+  void _toggleKeyboardType() {
+    setState(() {
+      _showCustomKeyboard = !_showCustomKeyboard;
+      if (!_showCustomKeyboard) {
+        // Request focus to show native keyboard when switching to accessory bar
+        _focusNode.requestFocus();
+      }
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final terminalState = ref.watch(terminalProvider);
+    final bottomInset = MediaQuery.of(context).viewInsets.bottom;
+    final isNativeKeyboardVisible = bottomInset > 0;
 
     return Scaffold(
+      resizeToAvoidBottomInset: true,
       appBar: _fullscreen
           ? null
           : AppBar(
@@ -76,14 +142,10 @@ class _TerminalScreenState extends ConsumerState<TerminalScreen> {
               actions: [
                 IconButton(
                   icon: Icon(
-                    _showKeyboard ? Icons.keyboard_hide : Icons.keyboard,
+                    _showCustomKeyboard ? Icons.keyboard : Icons.keyboard_alt_outlined,
                   ),
-                  onPressed: () {
-                    setState(() {
-                      _showKeyboard = !_showKeyboard;
-                    });
-                  },
-                  tooltip: _showKeyboard ? 'Hide Keyboard' : 'Show Keyboard',
+                  onPressed: _toggleKeyboardType,
+                  tooltip: _showCustomKeyboard ? 'Use Native Keyboard' : 'Use Custom Keyboard',
                 ),
                 IconButton(
                   icon: Icon(
@@ -157,13 +219,32 @@ class _TerminalScreenState extends ConsumerState<TerminalScreen> {
                 : const Center(child: CircularProgressIndicator()),
           ),
 
-          // Mobile keyboard (toggleable)
-          if (_showKeyboard)
+          // Accessory Bar (for native keyboard)
+          if (!_showCustomKeyboard && isNativeKeyboardVisible)
+            TerminalAccessoryBar(
+              onKeyPressed: _handleInput,
+              onToggleKeyboard: () {
+                _focusNode.unfocus();
+              },
+              isCtrlActive: _ctrlActive,
+              isAltActive: _altActive,
+              isShiftActive: _shiftActive,
+              onModifierTap: (mod) {
+                setState(() {
+                  if (mod == 'CTRL') _ctrlActive = !_ctrlActive;
+                  if (mod == 'ALT') _altActive = !_altActive;
+                  if (mod == 'SHIFT') _shiftActive = !_shiftActive;
+                });
+              },
+            ),
+
+          // Custom virtual keyboard
+          if (_showCustomKeyboard)
             MobileKeyboard(
               onKeyPressed: _handleInput,
               onClose: () {
                 setState(() {
-                  _showKeyboard = false;
+                  _showCustomKeyboard = false;
                 });
               },
             ),
