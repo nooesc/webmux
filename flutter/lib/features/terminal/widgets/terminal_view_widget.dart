@@ -86,6 +86,24 @@ class _TerminalViewWidgetState extends State<TerminalViewWidget> with WidgetsBin
   }
 
   @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      // Force text input connection to rebuild when returning to app
+      if (widget.focusNode.hasFocus) {
+        widget.focusNode.unfocus();
+      }
+      Future.delayed(const Duration(milliseconds: 100), () {
+        if (mounted) {
+          widget.focusNode.requestFocus();
+          SystemChannels.textInput.invokeMethod('TextInput.show');
+        }
+      });
+    } else if (state == AppLifecycleState.paused) {
+      widget.focusNode.unfocus();
+    }
+  }
+
+  @override
   void didChangeMetrics() {
     Future.delayed(const Duration(milliseconds: 100), () {
       if (mounted) {
@@ -287,8 +305,18 @@ class _TerminalViewWidgetState extends State<TerminalViewWidget> with WidgetsBin
                 GestureDetector(
                   onTap: () {
                     // Manual focus trigger for the keyboard
-                    widget.focusNode.requestFocus();
-                    SystemChannels.textInput.invokeMethod('TextInput.show');
+                    if (widget.focusNode.hasFocus) {
+                      widget.focusNode.unfocus();
+                      Future.microtask(() {
+                        if (mounted) {
+                          widget.focusNode.requestFocus();
+                          SystemChannels.textInput.invokeMethod('TextInput.show');
+                        }
+                      });
+                    } else {
+                      widget.focusNode.requestFocus();
+                      SystemChannels.textInput.invokeMethod('TextInput.show');
+                    }
                   },
                   onDoubleTap: _zoomIn,
                   onLongPress: _zoomOut,
