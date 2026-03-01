@@ -56,8 +56,9 @@ class _TerminalScreenState extends ConsumerState<TerminalScreen> with WidgetsBin
       
       terminalNotifier.terminalService.setInputProcessor(_processInput);
       
-      // Listen for selection changes
-      terminalNotifier.state.controller?.addListener(_onSelectionChange);
+      // Listen for selection changes via the controller in state
+      final terminalState = ref.read(terminalProvider);
+      terminalState.controller?.addListener(_onSelectionChange);
       
       _persistActiveSession();
       
@@ -87,9 +88,7 @@ class _TerminalScreenState extends ConsumerState<TerminalScreen> with WidgetsBin
   }
 
   void _onFocusChange() {
-    // If we gain focus, ensure we are in a state to show keyboard
     if (_focusNode.hasFocus && !_showCustomKeyboard && !_isSelectionMode) {
-      // Logic handled by focusNode itself usually
     }
   }
 
@@ -123,14 +122,11 @@ class _TerminalScreenState extends ConsumerState<TerminalScreen> with WidgetsBin
   }
 
   void _processInput(String session, String data) {
-    // In selection mode, we ignore output from the terminal (user typing)
-    // although TerminalView is set to readOnly: true anyway.
     if (_isSelectionMode) return;
 
     String finalData = data;
     bool wasModified = false;
 
-    // Apply soft modifiers for single character inputs (from native keyboard)
     if (data.length == 1 && (_ctrlActive || _altActive || _shiftActive)) {
       String char = data;
       wasModified = true;
@@ -157,10 +153,8 @@ class _TerminalScreenState extends ConsumerState<TerminalScreen> with WidgetsBin
       }
     }
 
-    // Send to backend via terminal provider
     ref.read(terminalProvider.notifier).sendData(session, finalData);
 
-    // Reset soft modifiers if they were used
     if (wasModified) {
       setState(() {
         _ctrlActive = false;
@@ -207,10 +201,9 @@ class _TerminalScreenState extends ConsumerState<TerminalScreen> with WidgetsBin
     setState(() {
       _showCustomKeyboard = !_showCustomKeyboard;
       if (_showCustomKeyboard) {
-        // Close native keyboard
         _focusNode.unfocus();
         SystemChannels.textInput.invokeMethod('TextInput.hide');
-        _isSelectionMode = false; // Disable selection mode when virtual keyboard is on
+        _isSelectionMode = false;
       } else {
         // Show native keyboard
         _focusNode.requestFocus();
@@ -223,15 +216,22 @@ class _TerminalScreenState extends ConsumerState<TerminalScreen> with WidgetsBin
     setState(() {
       _isSelectionMode = !_isSelectionMode;
       if (_isSelectionMode) {
-        // Hide keyboard when entering selection mode
         _focusNode.unfocus();
         SystemChannels.textInput.invokeMethod('TextInput.hide');
       } else {
-        // Show keyboard when leaving selection mode
         _focusNode.requestFocus();
         SystemChannels.textInput.invokeMethod('TextInput.show');
+        // Clear selection when leaving selection mode
+        ref.read(terminalProvider).controller?.clearSelection();
       }
     });
+  }
+
+  void _handleSelectAll() {
+    // Temporarily disabled due to API incompatibilities in build
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Select All not yet implemented'), duration: Duration(seconds: 1)),
+    );
   }
 
   void _handleCopy() async {
@@ -243,15 +243,11 @@ class _TerminalScreenState extends ConsumerState<TerminalScreen> with WidgetsBin
       final text = terminal.buffer.getText(controller.selection!);
       await Clipboard.setData(ClipboardData(text: text));
       
-      // Provide feedback
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Copied to clipboard'), duration: Duration(seconds: 1)),
         );
       }
-      
-      // Optional: auto-exit selection mode
-      // _toggleSelectionMode();
     }
   }
 
@@ -401,6 +397,7 @@ class _TerminalScreenState extends ConsumerState<TerminalScreen> with WidgetsBin
                 onToggleSelectionMode: _toggleSelectionMode,
                 onCopy: _handleCopy,
                 onPaste: _handlePaste,
+                onSelectAll: _handleSelectAll,
                 hasSelection: _hasSelection,
               ),
 

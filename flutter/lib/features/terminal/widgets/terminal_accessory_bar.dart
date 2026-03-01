@@ -11,6 +11,7 @@ class TerminalAccessoryBar extends StatefulWidget {
   final VoidCallback onToggleSelectionMode;
   final VoidCallback onCopy;
   final VoidCallback onPaste;
+  final VoidCallback onSelectAll;
   final bool hasSelection;
 
   const TerminalAccessoryBar({
@@ -25,6 +26,7 @@ class TerminalAccessoryBar extends StatefulWidget {
     required this.onToggleSelectionMode,
     required this.onCopy,
     required this.onPaste,
+    required this.onSelectAll,
     this.hasSelection = false,
   });
 
@@ -103,6 +105,11 @@ class _TerminalAccessoryBarState extends State<TerminalAccessoryBar> {
                     label: widget.isSelectionMode ? 'INPUT' : 'SELECT',
                     onTap: widget.onToggleSelectionMode,
                     color: widget.isSelectionMode ? Colors.orange[800] : Colors.green[800],
+                  ),
+                  _buildSpecialKey(
+                    label: 'ALL',
+                    onTap: widget.onSelectAll,
+                    color: Colors.teal[800],
                   ),
                   if (widget.hasSelection)
                     _buildSpecialKey(
