@@ -33,10 +33,10 @@ class TerminalState {
 }
 
 class TerminalNotifier extends StateNotifier<TerminalState> {
+  final TerminalService terminalService;
   final WebSocketService _wsService;
-  final Map<String, Terminal> _terminals = {};
 
-  TerminalNotifier(this._wsService) : super(const TerminalState()) {
+  TerminalNotifier(this.terminalService, this._wsService) : super(const TerminalState()) {
     _init();
   }
 
@@ -49,60 +49,19 @@ class TerminalNotifier extends StateNotifier<TerminalState> {
   void connect(String sessionName) {
     state = state.copyWith(isLoading: true, error: null);
 
-    // Create or get existing terminal for this session
-    if (!_terminals.containsKey(sessionName)) {
-      final terminal = Terminal(maxLines: 10000);
-      _terminals[sessionName] = terminal;
+    final terminal = terminalService.createTerminal(sessionName);
 
-      // Set up terminal output callback
-      terminal.onOutput = (data) {
-        _wsService.sendTerminalData(sessionName, data);
-      };
-
-      // Set up terminal resize callback
-      terminal.onResize = (cols, rows, syncUi, pid) {
-        _wsService.resizeTerminal(sessionName, cols, rows);
-      };
-
-      // Listen for incoming data from WebSocket
-      // Handle output messages - after attach, all output goes to this terminal
-      _wsService.messages.listen((message) {
-        final type = message['type'] as String?;
-        if (type == 'output') {
-          // For output messages, write directly to terminal (no session filter needed after attach)
-          final data = message['data'] as String?;
-          if (data != null) {
-            terminal.write(data);
-          }
-        }
-        // Also handle legacy terminal_data format
-        if (type == 'terminal_data') {
-          final msgSession =
-              message['session'] as String? ??
-              message['sessionName'] as String?;
-          if (msgSession == sessionName) {
-            final data = message['data'] as String?;
-            if (data != null) {
-              terminal.write(data);
-            }
-          }
-        }
-      });
-    }
-
-    // Send attach-session message using the existing shared WebSocket connection
-    // with terminal dimensions (using defaults, resize will update after view renders)
+    // Send attach-session message
     _wsService.attachSession(sessionName, cols: 80, rows: 24);
 
     state = state.copyWith(
       isLoading: false,
       isConnected: _wsService.isConnected,
-      terminal: _terminals[sessionName],
+      terminal: terminal,
     );
   }
 
   void disconnect() {
-    // Don't actually disconnect - just clear terminal
   }
 
   void sendData(String sessionName, String data) {
@@ -110,19 +69,24 @@ class TerminalNotifier extends StateNotifier<TerminalState> {
   }
 
   void resize(String sessionName, int cols, int rows) {
-    _wsService.resizeTerminal(sessionName, cols, rows);
+    terminalService.resizeTerminal(sessionName, cols, rows);
   }
 
   @override
   void dispose() {
-    _terminals.clear();
     super.dispose();
   }
 }
 
+final terminalServiceProvider = Provider<TerminalService>((ref) {
+  final wsService = ref.watch(sharedWebSocketServiceProvider);
+  return TerminalService(wsService);
+});
+
 final terminalProvider = StateNotifierProvider<TerminalNotifier, TerminalState>(
   (ref) {
+    final terminalService = ref.watch(terminalServiceProvider);
     final wsService = ref.watch(sharedWebSocketServiceProvider);
-    return TerminalNotifier(wsService);
+    return TerminalNotifier(terminalService, wsService);
   },
 );
