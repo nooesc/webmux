@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:xterm/xterm.dart';
+import 'package:volume_key_board/volume_key_board.dart';
 
 class TerminalViewWidget extends StatefulWidget {
   final Terminal terminal;
@@ -32,6 +33,21 @@ class _TerminalViewWidgetState extends State<TerminalViewWidget> {
   void initState() {
     super.initState();
     widget.terminal.onOutput = widget.onInput;
+    VolumeKeyBoard.instance.addListener(_handleVolumeKey);
+  }
+
+  @override
+  void dispose() {
+    VolumeKeyBoard.instance.removeListener();
+    super.dispose();
+  }
+
+  void _handleVolumeKey(VolumeKey event) {
+    if (event == VolumeKey.up) {
+      _zoomIn();
+    } else if (event == VolumeKey.down) {
+      _zoomOut();
+    }
   }
 
   void _handleKeyEvent(KeyEvent event) {
