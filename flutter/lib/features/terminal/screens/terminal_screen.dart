@@ -19,10 +19,11 @@ class TerminalScreen extends ConsumerStatefulWidget {
 }
 
 class _TerminalScreenState extends ConsumerState<TerminalScreen> with WidgetsBindingObserver {
-  final FocusNode _focusNode = FocusNode();
+  final FocusNode _focusNode = FocusNode(debugLabel: 'TerminalMainFocus');
   bool _showCustomKeyboard = false;
   bool _fullscreen = false;
   bool _showStatus = true;
+  bool _wasKeyboardVisible = false;
   
   // Modifier states for accessory bar + native keyboard
   bool _ctrlActive = false;
@@ -41,18 +42,18 @@ class _TerminalScreenState extends ConsumerState<TerminalScreen> with WidgetsBin
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    
+    _focusNode.addListener(_onFocusChange);
 
     // Connect to the terminal session
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final terminalNotifier = ref.read(terminalProvider.notifier);
       terminalNotifier.connect(widget.sessionName);
       
-      // Register custom input processor to handle sticky modifiers
       terminalNotifier.terminalService.setInputProcessor(_processInput);
       
       _persistActiveSession();
       
-      // Auto-hide status bar
       Future.delayed(const Duration(seconds: 3), () {
         if (mounted) {
           setState(() {
@@ -61,13 +62,21 @@ class _TerminalScreenState extends ConsumerState<TerminalScreen> with WidgetsBin
         }
       });
 
-      // Request focus to show native keyboard
+      // Initial focus
       _focusNode.requestFocus();
     });
   }
 
+  void _onFocusChange() {
+    // If we gain focus, ensure we are in a state to show keyboard
+    if (_focusNode.hasFocus && !_showCustomKeyboard) {
+      // Just a logging or debug point if needed
+    }
+  }
+
   @override
   void dispose() {
+    _focusNode.removeListener(_onFocusChange);
     WidgetsBinding.instance.removeObserver(this);
     _clearActiveSession();
     _focusNode.dispose();
@@ -76,22 +85,27 @@ class _TerminalScreenState extends ConsumerState<TerminalScreen> with WidgetsBin
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed) {
-      Future.delayed(const Duration(milliseconds: 300), () {
-        if (mounted && !_showCustomKeyboard) {
-          _focusNode.requestFocus();
-        }
-      });
+    if (state == AppLifecycleState.paused) {
+      // Remember keyboard state
+      _wasKeyboardVisible = MediaQuery.of(context).viewInsets.bottom > 0;
+    } else if (state == AppLifecycleState.resumed) {
+      // Restore focus and keyboard
+      if (_wasKeyboardVisible && !_showCustomKeyboard) {
+        Future.delayed(const Duration(milliseconds: 500), () {
+          if (mounted) {
+            _focusNode.requestFocus();
+            // Force keyboard show
+            SystemChannels.textInput.invokeMethod('TextInput.show');
+          }
+        });
+      }
     }
   }
 
-  // This is the CRITICAL method that catches input from TerminalView
-  // and applies our custom modifiers before sending to backend.
   void _processInput(String session, String data) {
     String finalData = data;
     bool wasModified = false;
 
-    // Apply soft modifiers for single character inputs (from native keyboard)
     if (data.length == 1 && (_ctrlActive || _altActive || _shiftActive)) {
       String char = data;
       wasModified = true;
@@ -118,10 +132,8 @@ class _TerminalScreenState extends ConsumerState<TerminalScreen> with WidgetsBin
       }
     }
 
-    // Send to backend via terminal provider
     ref.read(terminalProvider.notifier).sendData(session, finalData);
 
-    // Reset soft modifiers if they were used
     if (wasModified) {
       setState(() {
         _ctrlActive = false;
@@ -148,8 +160,6 @@ class _TerminalScreenState extends ConsumerState<TerminalScreen> with WidgetsBin
   }
 
   void _handleInput(String data) {
-    // This is called from our widgets (AccessoryBar, MobileKeyboard)
-    // We send directly since they handle their own modifiers
     ref.read(terminalProvider.notifier).sendData(widget.sessionName, data);
   }
 
@@ -254,6 +264,7 @@ class _TerminalScreenState extends ConsumerState<TerminalScreen> with WidgetsBin
                   ? GestureDetector(
                       onTap: () {
                         _focusNode.requestFocus();
+                        SystemChannels.textInput.invokeMethod('TextInput.show');
                       },
                       onDoubleTap: _toggleFullscreen,
                       onLongPress: () {

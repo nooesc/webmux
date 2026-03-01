@@ -29,7 +29,7 @@ class TerminalViewWidget extends StatefulWidget {
   State<TerminalViewWidget> createState() => _TerminalViewWidgetState();
 }
 
-class _TerminalViewWidgetState extends State<TerminalViewWidget> {
+class _TerminalViewWidgetState extends State<TerminalViewWidget> with WidgetsBindingObserver {
   double _fontSize = 14.0;
   bool _initialized = false;
   int _lastCols = 0;
@@ -41,15 +41,37 @@ class _TerminalViewWidgetState extends State<TerminalViewWidget> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _wrapperFocusNode = FocusNode(debugLabel: 'TerminalWrapper');
     VolumeKeyBoard.instance.addListener(_handleVolumeKey);
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _wrapperFocusNode.dispose();
     VolumeKeyBoard.instance.removeListener();
     super.dispose();
+  }
+
+  @override
+  void didChangeMetrics() {
+    // Force a resize check when window metrics change (e.g. keyboard show/hide)
+    // We use a small delay to let the layout settle
+    Future.delayed(const Duration(milliseconds: 100), () {
+      if (mounted) {
+        // This will trigger a rebuild if constraints changed, 
+        // but we can also manually trigger a size update if we have the context
+        _forceResizeCheck();
+      }
+    });
+  }
+
+  void _forceResizeCheck() {
+    final renderBox = context.findRenderObject() as RenderBox?;
+    if (renderBox != null && renderBox.hasSize) {
+      _updateTerminalSize(renderBox.size);
+    }
   }
 
   void _handleVolumeKey(VolumeKey event) {
@@ -110,6 +132,8 @@ class _TerminalViewWidgetState extends State<TerminalViewWidget> {
   }
 
   void _updateTerminalSize(Size size) {
+    if (size.width <= 0 || size.height <= 0) return;
+
     final charWidth = _fontSize * 0.6;
     final charHeight = _fontSize * 1.2;
 
@@ -135,9 +159,16 @@ class _TerminalViewWidgetState extends State<TerminalViewWidget> {
           WidgetsBinding.instance.addPostFrameCallback((_) {
             _updateTerminalSize(size);
           });
+        } else {
+          // Check for size changes during build
+          // We wrap in addPostFrameCallback to avoid "setState() or markNeedsBuild() called during build"
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) {
+              _updateTerminalSize(size);
+            }
+          });
         }
 
-        // We wrap everything in a Focus to handle hardware keys without conflicting with TerminalView's focus
         return Focus(
           focusNode: _wrapperFocusNode,
           onKey: (node, event) {
@@ -147,6 +178,7 @@ class _TerminalViewWidgetState extends State<TerminalViewWidget> {
           child: GestureDetector(
             onTap: () {
               widget.focusNode.requestFocus();
+              SystemChannels.textInput.invokeMethod('TextInput.show');
             },
             onDoubleTap: _zoomIn,
             onLongPress: _zoomOut,
