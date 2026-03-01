@@ -369,18 +369,26 @@ class _TerminalScreenState extends ConsumerState<TerminalScreen> with WidgetsBin
                             final isKeyboardVisible = MediaQuery.of(context).viewInsets.bottom > 0;
 
                             if (!isKeyboardVisible) {
-                              // Force Flutter to forget the current input connection
-                              _focusNode.unfocus();
-                              
-                              // Schedule the refocus for the very next frame.
-                              // This guarantees the old connection is dead and a new one 
-                              // is requested, forcing the Android OS to slide the keyboard up.
-                              WidgetsBinding.instance.addPostFrameCallback((_) {
-                                if (mounted) {
-                                  _focusNode.requestFocus();
-                                  SystemChannels.textInput.invokeMethod('TextInput.show');
-                                }
-                              });
+                              // If keyboard is hidden, ensure we cycle focus to force OS to show it
+                              if (_focusNode.hasFocus) {
+                                _focusNode.unfocus();
+                                Future.delayed(const Duration(milliseconds: 50), () {
+                                  if (mounted) {
+                                    _focusNode.requestFocus();
+                                    SystemChannels.textInput.invokeMethod('TextInput.show');
+                                  }
+                                });
+                              } else {
+                                _focusNode.requestFocus();
+                                SystemChannels.textInput.invokeMethod('TextInput.show');
+                              }
+                            } else {
+                              // If keyboard is already visible, just ensure focus is maintained
+                              // without unfocusing, which prevents the keyboard from hiding.
+                              if (!_focusNode.hasFocus) {
+                                _focusNode.requestFocus();
+                              }
+                              SystemChannels.textInput.invokeMethod('TextInput.show');
                             }
                           }
                         },
