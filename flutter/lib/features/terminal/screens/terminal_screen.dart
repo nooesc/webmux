@@ -349,22 +349,6 @@ class _TerminalScreenState extends ConsumerState<TerminalScreen> with WidgetsBin
             Expanded(
               child: terminalState.terminal != null
                   ? GestureDetector(
-                      onTap: () {
-                        if (!_showCustomKeyboard && !_isSelectionMode) {
-                          if (_focusNode.hasFocus) {
-                            _focusNode.unfocus();
-                            Future.microtask(() {
-                              if (mounted) {
-                                _focusNode.requestFocus();
-                                SystemChannels.textInput.invokeMethod('TextInput.show');
-                              }
-                            });
-                          } else {
-                            _focusNode.requestFocus();
-                            SystemChannels.textInput.invokeMethod('TextInput.show');
-                          }
-                        }
-                      },
                       onDoubleTap: _toggleFullscreen,
                       onLongPress: () {
                         setState(() {
@@ -380,6 +364,25 @@ class _TerminalScreenState extends ConsumerState<TerminalScreen> with WidgetsBin
                         ctrlActive: _ctrlActive,
                         altActive: _altActive,
                         shiftActive: _shiftActive,
+                        onTap: () {
+                          if (!_showCustomKeyboard && !_isSelectionMode) {
+                            if (_focusNode.hasFocus) {
+                              // If it already thinks it has focus but keyboard is hidden, 
+                              // we must drop focus and wait long enough for the framework 
+                              // to register the detach before re-attaching.
+                              _focusNode.unfocus();
+                              Future.delayed(const Duration(milliseconds: 100), () {
+                                if (mounted) {
+                                  _focusNode.requestFocus();
+                                  SystemChannels.textInput.invokeMethod('TextInput.show');
+                                }
+                              });
+                            } else {
+                              _focusNode.requestFocus();
+                              SystemChannels.textInput.invokeMethod('TextInput.show');
+                            }
+                          }
+                        },
                         onModifiersReset: () {
                           setState(() {
                             _ctrlActive = false;

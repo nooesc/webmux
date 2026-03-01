@@ -14,6 +14,7 @@ class TerminalViewWidget extends StatefulWidget {
   final bool shiftActive;
   final bool isSelectionMode;
   final VoidCallback onModifiersReset;
+  final VoidCallback? onTap;
 
   const TerminalViewWidget({
     super.key,
@@ -27,6 +28,7 @@ class TerminalViewWidget extends StatefulWidget {
     this.shiftActive = false,
     this.isSelectionMode = false,
     required this.onModifiersReset,
+    this.onTap,
   });
 
   @override
@@ -303,24 +305,8 @@ class _TerminalViewWidgetState extends State<TerminalViewWidget> with WidgetsBin
 
                 // Layer 2: TERMINAL VIEW (On top, captures ALL gestures)
                 GestureDetector(
-                  onTap: () {
-                    // Manual focus trigger for the keyboard
-                    if (widget.focusNode.hasFocus) {
-                      widget.focusNode.unfocus();
-                      Future.microtask(() {
-                        if (mounted) {
-                          widget.focusNode.requestFocus();
-                          SystemChannels.textInput.invokeMethod('TextInput.show');
-                        }
-                      });
-                    } else {
-                      widget.focusNode.requestFocus();
-                      SystemChannels.textInput.invokeMethod('TextInput.show');
-                    }
-                  },
-                  onDoubleTap: _zoomIn,
-                  onLongPress: _zoomOut,
-                  behavior: HitTestBehavior.opaque,
+                  onTap: widget.onTap,
+                  behavior: HitTestBehavior.translucent,
                   child: TerminalView(
                     widget.terminal,
                     controller: widget.controller,
