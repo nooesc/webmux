@@ -238,14 +238,14 @@ class _DotfileEditorScreenState extends ConsumerState<DotfileEditorScreen> {
   }
 
   Widget _buildEditor(bool isDark) {
+    final lineCount = _controller.text.split('\n').length;
     return SingleChildScrollView(
       controller: _scrollController,
       child: TextField(
         controller: _controller,
         focusNode: _focusNode,
         readOnly: _isReadOnly,
-        maxLines: null,
-        expands: true,
+        maxLines: lineCount > 50 ? lineCount : null,
         decoration: const InputDecoration(
           border: InputBorder.none,
           contentPadding: EdgeInsets.all(12),
