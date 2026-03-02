@@ -107,6 +107,12 @@ class CronNotifier extends StateNotifier<CronState> {
   }
 
   void refresh() {
+    if (!_wsService.isConnected) {
+      return;
+    }
+    if (state.isLoading) {
+      return;
+    }
     state = state.copyWith(isLoading: true);
     _wsService.requestCronJobs();
   }
