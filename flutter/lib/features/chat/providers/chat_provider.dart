@@ -102,7 +102,7 @@ class ChatNotifier extends StateNotifier<ChatState> {
         msg.type == ChatMessageType.assistant) {
       final lastMsg = messages.last;
       messages[messages.length - 1] = lastMsg.copyWith(
-        content: lastMsg.content + '\n' + msg.content,
+        content: '${lastMsg.content ?? ''}\n${msg.content ?? ''}',
       );
     } else {
       messages.add(msg);
@@ -118,7 +118,28 @@ class ChatNotifier extends StateNotifier<ChatState> {
 
   ChatMessage _parseMessage(Map<String, dynamic> data) {
     final role = data['role'] as String? ?? 'assistant';
-    final blocks = data['blocks'] as List<dynamic>? ?? [];
+    final blocksData = data['blocks'] as List<dynamic>? ?? [];
+
+    final blocks = blocksData.map((b) {
+      final block = b as Map<String, dynamic>;
+      final blockType = block['type'] as String? ?? 'text';
+
+      switch (blockType) {
+        case 'tool_call':
+          return ChatBlock.toolCall(
+            toolName: block['name'] as String?,
+            summary: block['summary'] as String?,
+            input: block['input'] as Map<String, dynamic>?,
+          );
+        case 'tool_result':
+          return ChatBlock.toolResult(
+            content: block['content'] as String?,
+            summary: block['summary'] as String?,
+          );
+        default:
+          return ChatBlock.text(block['text'] as String? ?? '');
+      }
+    }).toList();
 
     String content = '';
     String? toolName;
@@ -126,26 +147,27 @@ class ChatNotifier extends StateNotifier<ChatState> {
 
     if (role == 'user') {
       type = ChatMessageType.user;
-      final textBlocks = blocks.where((b) => b['type'] == 'text');
-      content = textBlocks.map((b) => b['text'] as String? ?? '').join('\n');
+      final textBlocks = blocks.where((b) => b.type == ChatBlockType.text);
+      content = textBlocks.map((b) => b.text ?? '').join('\n');
     } else {
       type = ChatMessageType.assistant;
-      final textBlocks = blocks.where((b) => b['type'] == 'text');
-      final toolBlocks = blocks.where((b) => b['type'] == 'tool_call');
-      final toolResultBlocks = blocks.where((b) => b['type'] == 'tool_result');
+      final textBlocks = blocks.where((b) => b.type == ChatBlockType.text);
+      final toolBlocks = blocks.where((b) => b.type == ChatBlockType.toolCall);
+      final toolResultBlocks = blocks.where(
+        (b) => b.type == ChatBlockType.toolResult,
+      );
 
-      content = textBlocks.map((b) => b['text'] as String? ?? '').join('\n');
+      content = textBlocks.map((b) => b.text ?? '').join('\n');
 
       if (toolBlocks.isNotEmpty) {
         type = ChatMessageType.tool;
-        toolName = toolBlocks.first['name'] as String?;
-        final summary = toolBlocks.first['summary'] as String? ?? '';
+        toolName = toolBlocks.first.toolName;
+        final summary = toolBlocks.first.summary ?? '';
         content = 'Tool: $toolName - $summary';
       }
 
       if (toolResultBlocks.isNotEmpty) {
-        final resultContent =
-            toolResultBlocks.first['content'] as String? ?? '';
+        final resultContent = toolResultBlocks.first.content ?? '';
         if (resultContent.isNotEmpty) {
           content += '\n\nResult:\n$resultContent';
         }
@@ -158,6 +180,7 @@ class ChatNotifier extends StateNotifier<ChatState> {
       content: content,
       timestamp: DateTime.now(),
       toolName: toolName,
+      blocks: blocks,
     );
   }
 
@@ -246,7 +269,7 @@ class ChatNotifier extends StateNotifier<ChatState> {
       final messages = List<ChatMessage>.from(state.messages);
       final lastMessage = messages.last;
       messages[messages.length - 1] = lastMessage.copyWith(
-        content: lastMessage.content + content,
+        content: '${lastMessage.content ?? ''}$content',
       );
       state = state.copyWith(messages: messages);
     }
