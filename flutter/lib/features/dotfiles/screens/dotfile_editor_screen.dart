@@ -191,12 +191,15 @@ class _DotfileEditorScreenState extends ConsumerState<DotfileEditorScreen> {
                           color: isDark
                               ? const Color(0xFF1E1E1E)
                               : Colors.white,
-                          child: Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              _buildLineNumbers(isDark),
-                              Expanded(child: _buildEditor(isDark)),
-                            ],
+                          child: SingleChildScrollView(
+                            controller: _scrollController,
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                _buildLineNumbers(isDark),
+                                Expanded(child: _buildEditor(isDark)),
+                              ],
+                            ),
                           ),
                         ),
                       ),
@@ -215,10 +218,10 @@ class _DotfileEditorScreenState extends ConsumerState<DotfileEditorScreen> {
       width: 50,
       padding: const EdgeInsets.only(top: 12, right: 8),
       color: isDark ? const Color(0xFF1E1E1E) : Colors.grey[100],
-      child: ListView.builder(
-        controller: _scrollController,
-        itemCount: lines,
-        itemBuilder: (context, index) {
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.end,
+        mainAxisSize: MainAxisSize.min,
+        children: List.generate(lines, (index) {
           return SizedBox(
             height: 20,
             child: Text(
@@ -232,37 +235,34 @@ class _DotfileEditorScreenState extends ConsumerState<DotfileEditorScreen> {
               ),
             ),
           );
-        },
+        }),
       ),
     );
   }
 
   Widget _buildEditor(bool isDark) {
     final lineCount = _controller.text.split('\n').length;
-    return SingleChildScrollView(
-      controller: _scrollController,
-      child: TextField(
-        controller: _controller,
-        focusNode: _focusNode,
-        readOnly: _isReadOnly,
-        maxLines: lineCount > 50 ? lineCount : null,
-        decoration: const InputDecoration(
-          border: InputBorder.none,
-          contentPadding: EdgeInsets.all(12),
-        ),
-        style: TextStyle(
-          fontFamily: 'monospace',
-          fontSize: 14,
-          color: isDark ? Colors.grey[200] : Colors.grey[800],
-          height: 1.4,
-        ),
-        onChanged: (value) {
-          if (value != _originalContent && !_hasChanges) {
-            setState(() => _hasChanges = true);
-          }
-          setState(() {}); // Update line numbers
-        },
+    return TextField(
+      controller: _controller,
+      focusNode: _focusNode,
+      readOnly: _isReadOnly,
+      maxLines: lineCount > 50 ? lineCount : null,
+      decoration: const InputDecoration(
+        border: InputBorder.none,
+        contentPadding: EdgeInsets.all(12),
       ),
+      style: TextStyle(
+        fontFamily: 'monospace',
+        fontSize: 14,
+        color: isDark ? Colors.grey[200] : Colors.grey[800],
+        height: 1.4,
+      ),
+      onChanged: (value) {
+        if (value != _originalContent && !_hasChanges) {
+          setState(() => _hasChanges = true);
+        }
+        setState(() {}); // Update line numbers
+      },
     );
   }
 
