@@ -54,6 +54,7 @@ class DotfilesNotifier extends StateNotifier<DotfilesState> {
     _wsService.messages.listen((message) {
       final type = message['type'] as String?;
       switch (type) {
+        case 'dotfiles-list':
         case 'dotfiles_list':
           final files =
               (message['files'] as List?)
@@ -62,18 +63,21 @@ class DotfilesNotifier extends StateNotifier<DotfilesState> {
               [];
           state = state.copyWith(files: files, isLoading: false);
           break;
+        case 'dotfile-content':
         case 'dotfile_content':
           state = state.copyWith(
             fileContent: message['content'] as String?,
             isLoading: false,
           );
           break;
+        case 'dotfile-written':
         case 'dotfile_written':
           final success = message['success'] as bool? ?? false;
           if (success) {
             refresh();
           }
           break;
+        case 'dotfile-history':
         case 'dotfile_history':
           final versions =
               (message['versions'] as List?)
@@ -84,12 +88,14 @@ class DotfilesNotifier extends StateNotifier<DotfilesState> {
               [];
           state = state.copyWith(versions: versions, isLoading: false);
           break;
+        case 'dotfile-restored':
         case 'dotfile_restored':
           final success = message['success'] as bool? ?? false;
           if (success) {
             refresh();
           }
           break;
+        case 'dotfile-templates':
         case 'dotfile_templates':
           final templates =
               (message['templates'] as List?)
