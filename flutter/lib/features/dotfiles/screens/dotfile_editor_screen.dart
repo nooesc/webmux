@@ -66,14 +66,18 @@ class _DotfileEditorScreenState extends ConsumerState<DotfileEditorScreen> {
 
   void _jumpToNextMatch() {
     if (_searchMatches.isEmpty) return;
-    _searchIndex = (_searchIndex + 1) % _searchMatches.length;
+    setState(() {
+      _searchIndex = (_searchIndex + 1) % _searchMatches.length;
+    });
     _highlightMatch();
   }
 
   void _jumpToPreviousMatch() {
     if (_searchMatches.isEmpty) return;
-    _searchIndex =
-        (_searchIndex - 1 + _searchMatches.length) % _searchMatches.length;
+    setState(() {
+      _searchIndex =
+          (_searchIndex - 1 + _searchMatches.length) % _searchMatches.length;
+    });
     _highlightMatch();
   }
 
