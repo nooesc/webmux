@@ -1,5 +1,7 @@
 # WebMux
 
+![WebMux Screenshot](docs/screenshot.png)
+
 A high-performance web-based TMUX session viewer built with Rust and Vue.js. Access and control your TMUX sessions through a modern browser interface with full PWA support, WebSocket-based real-time communication, and mobile optimization.
 
 ## Features
