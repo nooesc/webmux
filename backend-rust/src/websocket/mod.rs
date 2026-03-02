@@ -103,6 +103,7 @@ struct WsState {
     client_id: ClientId,
     current_pty: Arc<Mutex<Option<PtySession>>>,
     current_session: Arc<Mutex<Option<String>>>,
+    current_window: Arc<Mutex<Option<u32>>>,
     audio_tx: Option<mpsc::UnboundedSender<BroadcastMessage>>,
     message_tx: mpsc::UnboundedSender<BroadcastMessage>,
     chat_log_handle: Arc<Mutex<Option<JoinHandle<()>>>>,
@@ -132,6 +133,7 @@ async fn handle_socket(socket: WebSocket, state: Arc<AppState>) {
         client_id: client_id.clone(),
         current_pty: Arc::new(Mutex::new(None)),
         current_session: Arc::new(Mutex::new(None)),
+        current_window: Arc::new(Mutex::new(None)),
         audio_tx: None,
         message_tx: tx.clone(),
         chat_log_handle: Arc::new(Mutex::new(None)),
@@ -202,8 +204,13 @@ async fn handle_message(
             send_message(&state.message_tx, response).await?;
         }
         
-        WebSocketMessage::AttachSession { session_name, cols, rows } => {
+        WebSocketMessage::AttachSession { session_name, cols, rows, window_index } => {
             info!("Attaching to session: {}", session_name);
+            
+            // Set current session and window for input handling
+            *state.current_session.lock().await = Some(session_name.clone());
+            *state.current_window.lock().await = window_index;
+            
             attach_to_session(state, &session_name, cols, rows).await?;
         }
         
@@ -218,6 +225,60 @@ async fn handle_message(
                 writer.flush()?;
             } else {
                 debug!("No PTY session active, ignoring input");
+            }
+        }
+
+        WebSocketMessage::InputViaTmux { session_name, window_index, data } => {
+            info!("Received InputViaTmux: {:?}", data);
+            info!("  session_name: {:?}, window_index: {:?}", session_name, window_index);
+            
+            // Get session and window from message, fallback to global state
+            let global_session = state.current_session.lock().await.clone();
+            let global_window = *state.current_window.lock().await;
+            
+            info!("  global_session: {:?}, global_window: {:?}", global_session, global_window);
+            
+            let session = session_name.or(global_session);
+            let idx = window_index.or(global_window);
+            
+            info!("  Using session: {:?}, window: {:?}", session, idx);
+            
+            if let (Some(session), Some(window_idx)) = (session, idx) {
+                let target = format!("{}:{}", session, window_idx);
+                
+                // Use direct tmux command - this works!
+                let text = data.trim_end_matches('\n');
+                let result = tokio::process::Command::new("tmux")
+                    .args(&["send-keys", "-t", &target, text])
+                    .output()
+                    .await;
+                
+                if result.is_ok() {
+                    // Also send Enter
+                    let _ = tokio::process::Command::new("tmux")
+                        .args(&["send-keys", "-t", &target, "Enter"])
+                        .output()
+                        .await;
+                    debug!("Sent keys via tmux: {:?}", data);
+                } else {
+                    error!("Failed to send keys via tmux");
+                }
+            } else {
+                debug!("No session/window active, ignoring input via tmux");
+            }
+        }
+
+        WebSocketMessage::SendEnterKey => {
+            info!("Received SendEnterKey");
+            let session_name = state.current_session.lock().await.clone();
+            let window_index = state.current_window.lock().await;
+            if let (Some(session), Some(idx)) = (session_name, *window_index) {
+                match tmux::send_special_key(&session, idx, "Enter").await {
+                    Ok(_) => debug!("Sent Enter key via tmux"),
+                    Err(e) => error!("Failed to send Enter via tmux: {}", e),
+                }
+            } else {
+                debug!("No session/window active, ignoring Enter key");
             }
         }
         
@@ -680,6 +741,10 @@ async fn handle_message(
         WebSocketMessage::WatchChatLog { session_name, window_index } => {
             info!("Starting chat log watch for {}:{}", session_name, window_index);
             let message_tx = state.message_tx.clone();
+            
+            // Set current session and window for input handling
+            *state.current_session.lock().await = Some(session_name.clone());
+            *state.current_window.lock().await = Some(window_index);
 
             // Cancel any existing watcher
             {
@@ -808,7 +873,7 @@ async fn attach_to_session(
     
     let mut cmd = CommandBuilder::new("tmux");
     cmd.args(&["attach-session", "-t", session_name]);
-    cmd.env("TERM", "xterm-256color");
+    cmd.env("TERM", "xterm");
     cmd.env("COLORTERM", "truecolor");
     
     // Clear SSH-related environment variables that might confuse starship

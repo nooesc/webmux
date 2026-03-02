@@ -142,12 +142,18 @@ class WebSocketService {
     send({'type': 'kill-session', 'sessionName': name});
   }
 
-  void attachSession(String name, {int cols = 80, int rows = 24}) {
+  void attachSession(
+    String name, {
+    int cols = 80,
+    int rows = 24,
+    int windowIndex = 0,
+  }) {
     send({
       'type': 'attach-session',
       'sessionName': name,
       'cols': cols,
       'rows': rows,
+      'windowIndex': windowIndex,
     });
   }
 
@@ -177,6 +183,19 @@ class WebSocketService {
 
   void sendTerminalData(String sessionName, String data) {
     send({'type': 'input', 'data': data});
+  }
+
+  void sendInputViaTmux(String sessionName, String data, {int? windowIndex}) {
+    send({
+      'type': 'inputViaTmux',
+      'sessionName': sessionName,
+      'windowIndex': windowIndex,
+      'data': data,
+    });
+  }
+
+  void sendEnterKey(String sessionName) {
+    send({'type': 'sendEnterKey'});
   }
 
   void resizeTerminal(String sessionName, int cols, int rows) {

@@ -101,10 +101,21 @@ pub enum WebSocketMessage {
         session_name: String,
         cols: u16,
         rows: u16,
+        #[serde(rename = "windowIndex")]
+        window_index: Option<u32>,
     },
     Input {
         data: String,
     },
+    #[serde(alias = "inputViaTmux")]
+    InputViaTmux {
+        #[serde(alias = "sessionName")]
+        session_name: Option<String>,
+        #[serde(alias = "windowIndex")]
+        window_index: Option<u32>,
+        data: String,
+    },
+    SendEnterKey,
     Resize {
         cols: u16,
         rows: u16,

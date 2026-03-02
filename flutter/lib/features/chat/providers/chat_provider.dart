@@ -169,6 +169,14 @@ class ChatNotifier extends StateNotifier<ChatState> {
       sessionName: sessionName,
       windowIndex: windowIndex,
     );
+    // First attach to the session's PTY so we can send input
+    _ws?.attachSession(
+      sessionName,
+      cols: 80,
+      rows: 24,
+      windowIndex: windowIndex,
+    );
+    // Then watch the chat log
     _ws?.watchChatLog(sessionName, windowIndex);
   }
 
@@ -177,9 +185,14 @@ class ChatNotifier extends StateNotifier<ChatState> {
     state = state.copyWith(isLoading: false);
   }
 
-  void sendInput(String data) {
-    if (_ws != null && state.sessionName != null) {
-      _ws!.sendTerminalData(state.sessionName!, data);
+  void sendInput(String data) async {
+    if (_ws != null && state.sessionName != null && state.windowIndex != null) {
+      final messageWithNewline = "$data\n";
+      _ws!.sendInputViaTmux(
+        state.sessionName!,
+        messageWithNewline,
+        windowIndex: state.windowIndex,
+      );
     }
   }
 

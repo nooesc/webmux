@@ -325,10 +325,13 @@ pub async fn capture_pane(session_name: &str) -> Result<String> {
     }
 }
 
-pub async fn send_keys_to_session(session_name: &str, keys: &str) -> Result<()> {
-    // Use -l flag to send keys literally (no interpretation)
+pub async fn send_keys_to_session(session_name: &str, window_index: u32, keys: &str) -> Result<()> {
+    let target = format!("{}:{}", session_name, window_index);
+    
+    // Use send-keys WITHOUT -l flag (literal mode) to send plain text
+    // The -l flag interprets keys as literal characters (like special keys)
     let status = Command::new("tmux")
-        .args(&["send-keys", "-t", session_name, "-l", keys])
+        .args(&["send-keys", "-t", &target, keys])
         .status()
         .await?;
     
@@ -339,10 +342,10 @@ pub async fn send_keys_to_session(session_name: &str, keys: &str) -> Result<()> 
     Ok(())
 }
 
-pub async fn send_special_key(session_name: &str, key: &str) -> Result<()> {
-    // Send special keys like Enter, Escape, etc without -l flag
+pub async fn send_special_key(session_name: &str, window_index: u32, key: &str) -> Result<()> {
+    let target = format!("{}:{}", session_name, window_index);
     let status = Command::new("tmux")
-        .args(&["send-keys", "-t", session_name, key])
+        .args(&["send-keys", "-t", &target, key])
         .status()
         .await?;
     

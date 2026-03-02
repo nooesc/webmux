@@ -1,11 +1,12 @@
 use anyhow::Result;
 use axum::{
     extract::State,
-    routing::get,
-    Router,
+    routing::{get, post},
+    Json, Router,
 };
 use axum_server::tls_rustls::RustlsConfig;
 use clap::Parser;
+use serde::Deserialize;
 use std::{
     net::SocketAddr,
     path::PathBuf,
@@ -18,6 +19,13 @@ use tower_http::{
 };
 use tracing::{error, info};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
+
+#[derive(Deserialize)]
+struct TmuxInput {
+    session: String,
+    text: String,
+    window: Option<u32>,
+}
 
 mod audio;
 mod chat_log;
@@ -113,6 +121,39 @@ async fn main() -> Result<()> {
             move |State(s): State<Arc<AppState>>| async move {
                 let count = s.client_manager.client_count().await;
                 format!("{{\"clients\":{}}}", count)
+            }
+        }))
+        // API: Send input directly to tmux session
+        .route("/api/tmux/input", axum::routing::post(|Json(payload): Json<TmuxInput>| async move {
+            let session = payload.session;
+            let window = payload.window.unwrap_or(0);
+            let text = payload.text;
+            
+            info!("Direct tmux input: session={}, window={}, text={}", session, window, text);
+            
+            // Execute direct tmux send-keys command
+            let target = format!("{}:{}", session, window);
+            let result = tokio::process::Command::new("tmux")
+                .args(&["send-keys", "-t", &target, &text])
+                .output()
+                .await;
+                
+            match result {
+                Ok(output) => {
+                    if output.status.success() {
+                        // Also send Enter key
+                        let _ = tokio::process::Command::new("tmux")
+                            .args(&["send-keys", "-t", &target, "Enter"])
+                            .output()
+                            .await;
+                        format!("{{\"success\":true}}")
+                    } else {
+                        format!("{{\"success\":false,\"error\":\"tmux command failed\"}}")
+                    }
+                }
+                Err(e) => {
+                    format!("{{\"success\":false,\"error\":\"{}\"}}", e)
+                }
             }
         }))
         // WebSocket endpoint
