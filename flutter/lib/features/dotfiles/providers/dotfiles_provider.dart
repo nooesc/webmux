@@ -48,6 +48,7 @@ class DotfilesNotifier extends StateNotifier<DotfilesState> {
 
   DotfilesNotifier(this._wsService) : super(const DotfilesState()) {
     _init();
+    refresh();
   }
 
   void _init() {

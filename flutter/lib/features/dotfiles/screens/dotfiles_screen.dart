@@ -25,6 +25,14 @@ class _DotfilesScreenState extends ConsumerState<DotfilesScreen> {
   };
 
   @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(dotfilesProvider.notifier).refresh();
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
     final dotfilesState = ref.watch(dotfilesProvider);
     final isDark = Theme.of(context).brightness == Brightness.dark;
