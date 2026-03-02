@@ -80,12 +80,13 @@ class _DotfileEditorScreenState extends ConsumerState<DotfileEditorScreen> {
   void _highlightMatch() {
     if (_searchMatches.isEmpty) return;
     final position = _searchMatches[_searchIndex];
-    final textBefore = _controller.text.substring(0, position);
-    final lineNumber = textBefore.split('\n').length - 1;
-    final lineHeight = 20.0;
-    final targetOffset = lineNumber * lineHeight;
+    _controller.selection = TextSelection.collapsed(offset: position);
+    final lines = _controller.text.substring(0, position).split('\n');
+    final lineNumber = lines.length - 1;
+    final estimatedHeight = lineNumber * 20.0 + 60;
     if (_scrollController.hasClients) {
-      _scrollController.jumpTo(targetOffset);
+      final maxScroll = _scrollController.position.maxScrollExtent;
+      _scrollController.jumpTo(estimatedHeight.clamp(0.0, maxScroll));
     }
   }
 
