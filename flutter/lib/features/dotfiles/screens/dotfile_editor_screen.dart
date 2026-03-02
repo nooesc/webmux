@@ -17,7 +17,6 @@ class _DotfileEditorScreenState extends ConsumerState<DotfileEditorScreen> {
   final FocusNode _focusNode = FocusNode();
   final ScrollController _scrollController = ScrollController();
   bool _hasChanges = false;
-  bool _isReadOnly = false;
   String _originalContent = '';
 
   @override
@@ -54,9 +53,7 @@ class _DotfileEditorScreenState extends ConsumerState<DotfileEditorScreen> {
     if (dotfilesState.fileContent != null && _originalContent.isEmpty) {
       _originalContent = dotfilesState.fileContent!;
       _controller.text = dotfilesState.fileContent!;
-      if (selectedFile != null) {
-        _isReadOnly = !selectedFile.writable && selectedFile.exists;
-      }
+      // Allow editing - backend will handle permission errors on save
     }
 
     return PopScope(
@@ -115,7 +112,7 @@ class _DotfileEditorScreenState extends ConsumerState<DotfileEditorScreen> {
                 ],
               ),
               actions: [
-                if (_hasChanges && !_isReadOnly)
+                if (_hasChanges)
                   TextButton.icon(
                     onPressed: _saveFile,
                     icon: const Icon(Icons.save, size: 18),
@@ -167,25 +164,6 @@ class _DotfileEditorScreenState extends ConsumerState<DotfileEditorScreen> {
                 ? const Center(child: CircularProgressIndicator())
                 : Column(
                     children: [
-                      if (_isReadOnly)
-                        Container(
-                          width: double.infinity,
-                          padding: const EdgeInsets.all(8),
-                          color: Colors.orange.withValues(alpha: 0.2),
-                          child: const Row(
-                            children: [
-                              Icon(Icons.lock, size: 16, color: Colors.orange),
-                              SizedBox(width: 8),
-                              Text(
-                                'Read-only file',
-                                style: TextStyle(
-                                  color: Colors.orange,
-                                  fontSize: 12,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
                       Expanded(
                         child: Container(
                           color: isDark
@@ -245,7 +223,6 @@ class _DotfileEditorScreenState extends ConsumerState<DotfileEditorScreen> {
     return TextField(
       controller: _controller,
       focusNode: _focusNode,
-      readOnly: _isReadOnly,
       maxLines: lineCount > 50 ? lineCount : null,
       decoration: const InputDecoration(
         border: InputBorder.none,
@@ -313,7 +290,7 @@ class _DotfileEditorScreenState extends ConsumerState<DotfileEditorScreen> {
   }
 
   void _saveFile() {
-    if (_isReadOnly || !_hasChanges) return;
+    if (!_hasChanges) return;
 
     final selectedFile = ref.read(dotfilesProvider).selectedFile;
     if (selectedFile != null) {
